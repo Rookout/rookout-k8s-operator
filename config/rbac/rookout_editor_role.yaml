@@ -1,0 +1,24 @@
+# permissions for end users to edit rookouts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rookout-editor-role
+rules:
+- apiGroups:
+  - rookout.rookout.com
+  resources:
+  - rookouts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rookout.rookout.com
+  resources:
+  - rookouts/status
+  verbs:
+  - get

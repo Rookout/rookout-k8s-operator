@@ -1,0 +1,7 @@
+apiVersion: rookout.rookout.com/v1alpha1
+kind: Rookout
+metadata:
+  name: rookout-sample
+spec:
+  # Add fields here
+  foo: bar

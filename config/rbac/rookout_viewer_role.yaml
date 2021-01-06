@@ -1,0 +1,20 @@
+# permissions for end users to view rookouts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rookout-viewer-role
+rules:
+- apiGroups:
+  - rookout.rookout.com
+  resources:
+  - rookouts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rookout.rookout.com
+  resources:
+  - rookouts/status
+  verbs:
+  - get
