@@ -1,6 +1,6 @@
 domain: rookout.com
 layout: go.kubebuilder.io/v3
-projectName: test
+projectName: rookout-k8s-operator
 repo: github.com/rookout/rookout-k8s-operator
 resources:
 - crdVersion: v1

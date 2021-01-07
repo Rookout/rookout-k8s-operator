@@ -117,3 +117,12 @@ bundle: manifests kustomize
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+build-and-deploy:
+	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+	make install
+	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+	kubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml
+
+log:
+	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager

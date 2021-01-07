@@ -18,6 +18,10 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +42,9 @@ type RookoutReconciler struct {
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update
 
+// Annotation for generating RBAC role to Watch Pods
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;watch;list
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
@@ -50,7 +57,15 @@ type RookoutReconciler struct {
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("rookout", req.NamespacedName)
 
-	// your logic here
+	pod := v1.Pod{}
+	err := r.Client.Get(ctx, req.NamespacedName, &pod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(pod.Status.ContainerStatuses) > 0 {
+		r.Log.Info(fmt.Sprintf("namespace: %s, name: %s, is ready : %v, status len: %v", req.Namespace, req.Name, pod.Status.ContainerStatuses[0].Ready, len(pod.Status.ContainerStatuses)))
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -58,6 +73,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		For(&rookoutv1alpha1.Rookout{}).
 		Complete(r)
 }
