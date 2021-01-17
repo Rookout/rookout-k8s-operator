@@ -15,6 +15,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
   - rookout.rookout.com
   resources:
   - rookouts
