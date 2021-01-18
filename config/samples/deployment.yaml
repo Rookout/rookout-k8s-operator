@@ -41,6 +41,10 @@ spec:
                 type: string
               pods_matcher:
                 type: string
+              rookout_controller_host:
+                type: string
+              rookout_controller_port:
+                type: string
               rookout_token:
                 type: string
             type: object

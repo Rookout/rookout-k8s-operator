@@ -29,6 +29,8 @@ type OperatorState struct {
 	RookoutToken    string
 	PodsMatcher     string
 	JavaProcMatcher string
+	ControllerHost  string
+	ControllerPort  string
 }
 
 var OpState = OperatorState{IsReady: false}
@@ -41,6 +43,8 @@ const (
 	JAVA_FLAGS                = "--add-opens java.base/java.net=ALL-UNNAMED" // disable reflection warning. ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/ "
 	INJECTION_SUCCESS_LOG     = "Injected successfully"
 	REQUEUE_AFTER             = 10 * time.Second
+	DEFAULT_ROOKOUT_HOST      = "wss://control.rookout.com"
+	DEFAULT_ROOKOUT_PORT      = "443"
 )
 
 // Annotation for generating RBAC for operator's own resources
@@ -66,11 +70,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		OpState.RookoutToken = rookoutResource.Spec.RookoutToken
 		OpState.PodsMatcher = rookoutResource.Spec.PodsMatcher
 		OpState.JavaProcMatcher = rookoutResource.Spec.JavaProcMatcher
+		OpState.ControllerHost = rookoutResource.Spec.RookoutControllerHost
+		OpState.ControllerPort = rookoutResource.Spec.RookoutControllerPort
+
 		return ctrl.Result{}, nil
 	}
 
 	if !OpState.IsReady {
-		logrus.Infof("Operator not ready yet. Requeue request for %v seconds", REQUEUE_AFTER)
+		logrus.Infof("operator not ready yet. Requeue request for %v seconds", REQUEUE_AFTER)
 		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil
 	}
 
@@ -78,7 +85,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	pod := v1.Pod{}
 	err = r.Client.Get(ctx, req.NamespacedName, &pod)
 	if err != nil {
-		logrus.Infof("Pod not found - %s", req.NamespacedName)
+		logrus.Infof("pod not found - %s", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
@@ -97,7 +104,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		podUtils, podUtilsErr := NewPodUtils(pod.Namespace, pod.Name, nil, &container)
 
 		if podUtilsErr != nil {
-			logrus.Errorf("Failed to initialize pod utils for container %s : %v", container.Name, podUtilsErr)
+			logrus.Errorf("failed to initialize pod utils for container %s : %v", container.Name, podUtilsErr)
 			continue
 		}
 
@@ -108,7 +115,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		javaPids, pidErr := podUtils.QueryMatchedProcesses(javaProcMatcher)
 		if pidErr != nil {
-			logrus.WithField("err", pidErr).Errorf("Failed to retrieve java processes from container %v", container.Name)
+			logrus.WithField("err", pidErr).Errorf("failed to retrieve java processes from container %v", container.Name)
 			continue
 		}
 
@@ -120,12 +127,25 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		copyErr := podUtils.CopyToPod(SRC_DIR, DST_DIR)
 		if copyErr != nil {
-			logrus.WithField("err", copyErr).Errorf("Failed to copy rook loader to container %v", container.Name)
+			logrus.WithField("err", copyErr).Errorf("failed to copy rook loader to container %v", container.Name)
 			continue
 		}
 
+		controllerHost := DEFAULT_ROOKOUT_HOST
+		if OpState.ControllerHost != "" {
+			controllerHost = OpState.ControllerHost
+		}
+
+		controllerPort := DEFAULT_ROOKOUT_PORT
+		if OpState.ControllerPort != "" {
+			controllerPort = OpState.ControllerPort
+		}
+
+		logrus.Infof("controller: %s:%s", controllerHost, controllerPort)
+
 		for _, pid := range javaPids {
-			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", OpState.RookoutToken, pid, JAVA_FLAGS, DST_DIR)
+			// TODO : detect java version before adding flags since those flags not supported on java 7
+			loadCmd := fmt.Sprintf("ROOKOUT_CONTROLLER_PORT=:%s ROOKOUT_CONTROLLER_HOST=%s ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", controllerPort, controllerHost, OpState.RookoutToken, pid, JAVA_FLAGS, DST_DIR)
 			stdout, execErr := podUtils.ExecCommand(true, loadCmd)
 
 			if execErr != nil {
