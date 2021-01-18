@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -31,6 +32,14 @@ var (
 )
 
 var SHELLS = []string{"sh", "ash"}
+
+type PodUtils struct {
+	namespace   string
+	podName     string
+	shell       string
+	stdinReader io.Reader
+	container   *v1.Container
+}
 
 func dontPanicOnTest(err error) {
 	if flag.Lookup("test.v") != nil {
@@ -66,18 +75,42 @@ func init() {
 	kubeClient = kubernetes.NewForConfigOrDie(inClusterConfig)
 }
 
-// ExecCommand executes the given command inside the specified container remotely
-func ExecCommand(namespace, podName string, stdinReader io.Reader, container *v1.Container, command ...string) (string, error) {
+func NewPodUtils(namespace, podName string, stdinReader io.Reader, container *v1.Container) (PodUtils, error) {
+	p := PodUtils{
+		namespace:   namespace,
+		podName:     podName,
+		stdinReader: stdinReader,
+		container:   container,
+	}
+
+	shell, err := p.detectShell()
+
+	if err != nil {
+		return p, err
+	}
+
+	p.shell = shell
+	return p, nil
+}
+
+func (p PodUtils) ExecCommand(useShell bool, command ...string) (string, error) {
+	var wrappedCommand []string
+
+	if useShell {
+		wrappedCommand = append(wrappedCommand, []string{p.shell, "-c"}...)
+	}
+
+	wrappedCommand = append(wrappedCommand, command...)
 
 	execReq := kubeClient.CoreV1().RESTClient().Post()
-	execReq = execReq.Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
+	execReq = execReq.Resource("pods").Name(p.podName).Namespace(p.namespace).SubResource("exec")
 
 	execReq.VersionedParams(&v1.PodExecOptions{
-		Container: container.Name,
+		Container: p.container.Name,
 		Command:   command,
 		Stdout:    true,
 		Stderr:    true,
-		Stdin:     stdinReader != nil,
+		Stdin:     p.stdinReader != nil,
 	}, scheme.ParameterCodec)
 
 	exec, err := remotecommand.NewSPDYExecutor(inClusterConfig, "POST", execReq.URL())
@@ -90,11 +123,11 @@ func ExecCommand(namespace, podName string, stdinReader io.Reader, container *v1
 	stdOut := bytes.Buffer{}
 	stdErr := bytes.Buffer{}
 
-	logrus.Debugf("Executing command '%v' in namespace='%s', pod='%s', container='%s'", command, namespace, podName, container.Name)
+	logrus.Debugf("Executing command '%v' in namespace='%s', pod='%s', container='%s'", wrappedCommand, p.namespace, p.podName, p.container.Name)
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: bufio.NewWriter(&stdOut),
 		Stderr: bufio.NewWriter(&stdErr),
-		Stdin:  stdinReader,
+		Stdin:  p.stdinReader,
 		Tty:    false,
 	})
 
@@ -116,10 +149,8 @@ func ExecCommand(namespace, podName string, stdinReader io.Reader, container *v1
 
 }
 
-// copyToPod uploads the content of srcDir to destDir on given container of the pod identified by podName
-// in namespace
-func CopyToPod(namespace, podName string, container *v1.Container, srcDir, destDir string) error {
-	logrus.Infof("Copying the content of '%s' directory to '%s/%s/%s:%s'", srcDir, namespace, podName, container.Name, destDir)
+func (p PodUtils) CopyToPod(srcDir, destDir string) error {
+	logrus.Infof("Copying the content of '%s' directory to '%s/%s/%s:%s'", srcDir, p.namespace, p.podName, p.container.Name, destDir)
 
 	ok, err := checkSourceDir(srcDir)
 	if err != nil {
@@ -135,13 +166,14 @@ func CopyToPod(namespace, podName string, container *v1.Container, srcDir, destD
 		destDir = strings.TrimSuffix(destDir, "/")
 	}
 
-	err = createDestDirIfNotExists(namespace, podName, container, destDir)
+	err = p.createDestDirIfNotExists(destDir)
 	if err != nil {
 		logrus.Errorf("Creating destination directory failed: %v", err)
 		return err
 	}
 
 	reader, writer := io.Pipe()
+	p.stdinReader = reader
 	go func() {
 		defer writer.Close()
 
@@ -151,9 +183,9 @@ func CopyToPod(namespace, podName string, container *v1.Container, srcDir, destD
 		}
 	}()
 
-	_, err = ExecCommand(namespace, podName, reader, container, "tar", "xfm", "-", "-C", destDir)
+	_, err = p.ExecCommand(false, "tar", "xfm", "-", "-C", destDir)
 
-	logrus.Infof("Copying the content of '%s' directory to '%s/%s/%s:%s' finished", srcDir, namespace, podName, container.Name, destDir)
+	logrus.Infof("Copying the content of '%s' directory to '%s/%s/%s:%s' finished", srcDir, p.namespace, p.podName, p.container.Name, destDir)
 	return err
 }
 
@@ -181,11 +213,10 @@ func checkSourceDir(path string) (bool, error) {
 
 // createDestDirIfNotExists creates the directory dirPath if not exists
 // on the target pod container
-func createDestDirIfNotExists(namespace, podName string, container *v1.Container, dirPath string) error {
-	logrus.Infof("Creating '%s/%s/%s:%s' if not exists.", namespace, podName, container.Name, dirPath)
+func (p PodUtils) createDestDirIfNotExists(dirPath string) error {
+	logrus.Infof("Creating '%s/%s/%s:%s' if not exists.", p.namespace, p.podName, p.container.Name, dirPath)
 
-	_, err := ExecCommand(namespace, podName, nil, container,
-		"mkdir", "-p", dirPath)
+	_, err := p.ExecCommand(false, "mkdir", "-p", dirPath)
 
 	return err
 }
@@ -273,10 +304,10 @@ func makeTarRec(srcPath, tarDestPath string, writer *tar.Writer) error {
 	return nil
 }
 
-func DetectShell(namespace, podName string, container *v1.Container) (string, error) {
+func (p PodUtils) detectShell() (string, error) {
 
 	for _, shell := range SHELLS {
-		_, err := ExecCommand(namespace, podName, nil, container, shell, "-c", "ls")
+		_, err := p.ExecCommand(false, shell, "-c", "ls")
 		if err != nil {
 			continue
 		}
@@ -285,4 +316,53 @@ func DetectShell(namespace, podName string, container *v1.Container) (string, er
 	}
 
 	return "", errors.New("no shell detected")
+}
+
+func extractMatchedPids(stdout string, matchString string) ([]int, error) {
+	var javaProcIds []int
+
+	procs := strings.Split(strings.TrimSpace(stdout), "\n")
+	for _, proc := range procs {
+		if !strings.Contains(proc, matchString) {
+			continue
+		}
+
+		idAndClassName := strings.Split(proc, " ")
+		trimmedPid := strings.Trim(strings.TrimSpace(idAndClassName[4]), "\t")
+
+		if trimmedPid == "" {
+			continue
+		}
+
+		pid, err := strconv.Atoi(trimmedPid)
+		if err != nil {
+			return nil, err
+		}
+
+		javaProcIds = append(javaProcIds, pid)
+	}
+
+	return javaProcIds, nil
+}
+
+func (p PodUtils) queryJavaProcesses() ([]int, error) {
+	logrus.Infof("Inspecting container '%s' for java processes", p.container.Name)
+
+	stdout, err := p.ExecCommand(true, PS_CMD)
+
+	if err != nil {
+		logrus.Warnf("Failed to retrieve process list: %v", err)
+		return nil, err
+	} else {
+
+		javaProcIds, extractErr := extractMatchedPids(stdout, JAVA_PROC_MATCHER)
+		if extractErr != nil {
+			logrus.Warnf("Failed to extract java processes: %v", extractErr)
+			return nil, err
+		}
+
+		logrus.Infof("Java processes: %v", javaProcIds)
+
+		return javaProcIds, nil
+	}
 }

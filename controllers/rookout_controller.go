@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -47,6 +46,10 @@ const (
 	DST_DIR           = "/rookout"
 	PS_CMD            = "ps"
 	JAVA_PROC_MATCHER = "java -jar"
+	// disable reflection warning
+	// ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/
+	JAVA_FLAGS    = "--add-opens java.base/java.net=ALL-UNNAMED"
+	ROOKOUT_TOKEN = "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
 )
 
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete
@@ -85,13 +88,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	for _, container := range pod.Spec.Containers {
-		shell, shellErr := DetectShell(pod.Namespace, pod.Name, &container)
-		if shellErr != nil {
-			logrus.Errorf("Failed to detect shell on container %v", container.Name)
+		podUtils, podUtilsErr := NewPodUtils(pod.Namespace, pod.Name, nil, &container)
+
+		if podUtilsErr != nil {
+			logrus.Errorf("Failed to initialize pod utils for container %s : %v", container.Name, podUtilsErr)
 			continue
 		}
 
-		javaPids, pidErr := queryJavaProcesses(shell, &pod, &container)
+		javaPids, pidErr := podUtils.queryJavaProcesses()
 		if pidErr != nil {
 			logrus.WithField("err", pidErr).Errorf("Failed to retrieve java processes from container %v", container.Name)
 			continue
@@ -103,20 +107,15 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		logrus.Infof("container: %s, java processes: %v", container.Name, javaPids)
 
-		copyErr := CopyToPod(pod.Namespace, pod.Name, &container, SRC_DIR, DST_DIR)
+		copyErr := podUtils.CopyToPod(SRC_DIR, DST_DIR)
 		if copyErr != nil {
 			logrus.WithField("err", copyErr).Errorf("Failed to copy rook loader to container %v", container.Name)
 			continue
 		}
 
-		// disable reflection warning
-		// ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/
-		javaFlags := "--add-opens java.base/java.net=ALL-UNNAMED"
-		token := "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
-
 		for _, pid := range javaPids {
-			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", token, pid, javaFlags, DST_DIR)
-			stdout, execErr := ExecCommand(pod.Namespace, pod.Name, nil, &container, shell, "-c", loadCmd)
+			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", ROOKOUT_TOKEN, pid, JAVA_FLAGS, DST_DIR)
+			stdout, execErr := podUtils.ExecCommand(true, loadCmd)
 			if execErr != nil {
 				logrus.WithField("err", execErr).Errorf("failed to inject rook to pid %d", pid)
 				continue
@@ -134,55 +133,4 @@ func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		For(&rookoutv1alpha1.Rookout{}).
 		Complete(r)
-}
-
-func extractMatchedPids(stdout string, matchString string) ([]int, error) {
-	var javaProcIds []int
-
-	procs := strings.Split(strings.TrimSpace(stdout), "\n")
-	for _, proc := range procs {
-		if !strings.Contains(proc, matchString) {
-			continue
-		}
-
-		idAndClassName := strings.Split(proc, " ")
-		trimmedPid := strings.Trim(strings.TrimSpace(idAndClassName[4]), "\t")
-
-		if trimmedPid == "" {
-			continue
-		}
-
-		pid, err := strconv.Atoi(trimmedPid)
-		if err != nil {
-			return nil, err
-		}
-
-		javaProcIds = append(javaProcIds, pid)
-	}
-
-	return javaProcIds, nil
-}
-
-// queryJavaProcesses inspects container for running java processes
-func queryJavaProcesses(shell string, pod *v1.Pod, container *v1.Container) ([]int, error) {
-	logrus.Infof("Inspecting container '%s' for java processes", container.Name)
-
-	stdout, err := ExecCommand(pod.Namespace, pod.Name, nil, container,
-		shell, "-c", PS_CMD)
-
-	if err != nil {
-		logrus.Warnf("Failed to retrieve process list: %v", err)
-		return nil, err
-	} else {
-
-		javaProcIds, extractErr := extractMatchedPids(stdout, JAVA_PROC_MATCHER)
-		if extractErr != nil {
-			logrus.Warnf("Failed to extract java processes: %v", extractErr)
-			return nil, err
-		}
-
-		logrus.Infof("Java processes: %v", javaProcIds)
-
-		return javaProcIds, nil
-	}
 }
