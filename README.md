@@ -36,6 +36,7 @@ time="2021-01-17T12:12:50Z" level=info msg="[Rookout] Testing connection to cont
 
 
 ## Code structure
+- Project's initial structure created by `operator-sdk init`
 - Operator's entry point : [controllers/rookout_controller.go](./controllers/rookout_controller.go)
 
 
