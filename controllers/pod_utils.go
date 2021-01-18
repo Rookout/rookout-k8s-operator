@@ -345,8 +345,8 @@ func extractMatchedPids(stdout string, matchString string) ([]int, error) {
 	return javaProcIds, nil
 }
 
-func (p PodUtils) queryJavaProcesses() ([]int, error) {
-	logrus.Infof("Inspecting container '%s' for java processes", p.container.Name)
+func (p PodUtils) QueryMatchedProcesses(matchStr string) ([]int, error) {
+	logrus.Infof("Inspecting container '%s' for matched processes for %s", p.container.Name, matchStr)
 
 	stdout, err := p.ExecCommand(true, PS_CMD)
 
@@ -355,14 +355,14 @@ func (p PodUtils) queryJavaProcesses() ([]int, error) {
 		return nil, err
 	} else {
 
-		javaProcIds, extractErr := extractMatchedPids(stdout, JAVA_PROC_MATCHER)
+		ProcessIds, extractErr := extractMatchedPids(stdout, matchStr)
 		if extractErr != nil {
-			logrus.Warnf("Failed to extract java processes: %v", extractErr)
+			logrus.Warnf("Failed to extract pid for matched processes: %v", extractErr)
 			return nil, err
 		}
 
-		logrus.Infof("Java processes: %v", javaProcIds)
+		logrus.Infof("Matched processes: %v", ProcessIds)
 
-		return javaProcIds, nil
+		return ProcessIds, nil
 	}
 }

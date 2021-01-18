@@ -95,7 +95,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			continue
 		}
 
-		javaPids, pidErr := podUtils.queryJavaProcesses()
+		javaPids, pidErr := podUtils.QueryMatchedProcesses(JAVA_PROC_MATCHER)
 		if pidErr != nil {
 			logrus.WithField("err", pidErr).Errorf("Failed to retrieve java processes from container %v", container.Name)
 			continue
