@@ -48,8 +48,9 @@ const (
 	JAVA_PROC_MATCHER = "java -jar"
 	// disable reflection warning
 	// ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/
-	JAVA_FLAGS    = "--add-opens java.base/java.net=ALL-UNNAMED"
-	ROOKOUT_TOKEN = "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
+	JAVA_FLAGS            = "--add-opens java.base/java.net=ALL-UNNAMED"
+	ROOKOUT_TOKEN         = "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
+	INJECTION_SUCCESS_LOG = "Injected successfully"
 )
 
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete
@@ -116,10 +117,17 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		for _, pid := range javaPids {
 			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", ROOKOUT_TOKEN, pid, JAVA_FLAGS, DST_DIR)
 			stdout, execErr := podUtils.ExecCommand(true, loadCmd)
+
 			if execErr != nil {
 				logrus.WithField("err", execErr).Errorf("failed to inject rook to pid %d", pid)
 				continue
 			}
+
+			if !strings.Contains(stdout, INJECTION_SUCCESS_LOG) {
+				logrus.WithField("err", stdout).Errorf("failed to inject rook to pid %d", pid)
+				continue
+			}
+
 			logrus.Info(stdout)
 		}
 	}
