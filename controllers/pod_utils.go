@@ -1,4 +1,4 @@
-// copied from :
+// Inspired from :
 // https://github.com/banzaicloud/prometheus-jmx-exporter-operator/blob/master/pkg/stub/copy.go
 // https://github.com/banzaicloud/prometheus-jmx-exporter-operator/blob/master/pkg/stub/exec.go
 
