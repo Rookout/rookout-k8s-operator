@@ -8,6 +8,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -28,6 +29,8 @@ var (
 	kubeClient      *kubernetes.Clientset
 	inClusterConfig *rest.Config
 )
+
+var SHELLS = []string{"sh", "ash"}
 
 func dontPanicOnTest(err error) {
 	if flag.Lookup("test.v") != nil {
@@ -268,4 +271,18 @@ func makeTarRec(srcPath, tarDestPath string, writer *tar.Writer) error {
 	}
 
 	return nil
+}
+
+func DetectShell(namespace, podName string, container *v1.Container) (string, error) {
+
+	for _, shell := range SHELLS {
+		_, err := ExecCommand(namespace, podName, nil, container, shell, "-c", "ls")
+		if err != nil {
+			continue
+		}
+
+		return shell, nil
+	}
+
+	return "", errors.New("no shell detected")
 }

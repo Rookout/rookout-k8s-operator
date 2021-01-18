@@ -73,6 +73,10 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	if !strings.Contains(pod.Name, POD_NAME) {
+		return ctrl.Result{}, nil
+	}
+
 	if len(pod.Status.ContainerStatuses) > 0 {
 		logrus.Infof("namespace: %s, name: %s, is ready : %v, status len: %v", req.Namespace, req.Name, pod.Status.ContainerStatuses[0].Ready, len(pod.Status.ContainerStatuses))
 		if !pod.Status.ContainerStatuses[0].Ready {
@@ -80,12 +84,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if !strings.Contains(pod.Name, POD_NAME) {
-		return ctrl.Result{}, nil
-	}
-
 	for _, container := range pod.Spec.Containers {
-		javaPids, pidErr := queryJavaProcesses(&pod, &container)
+		shell, shellErr := DetectShell(pod.Namespace, pod.Name, &container)
+		if shellErr != nil {
+			logrus.Errorf("Failed to detect shell on container %v", container.Name)
+			continue
+		}
+
+		javaPids, pidErr := queryJavaProcesses(shell, &pod, &container)
 		if pidErr != nil {
 			logrus.WithField("err", pidErr).Errorf("Failed to retrieve java processes from container %v", container.Name)
 			continue
@@ -103,9 +109,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			continue
 		}
 
+		// disable reflection warning
+		// ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/
+		javaFlags := "--add-opens java.base/java.net=ALL-UNNAMED"
+		token := "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
+
 		for _, pid := range javaPids {
-			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee ROOKOUT_TARGET_PID=%d java -jar %s/rook.jar", pid, DST_DIR)
-			stdout, execErr := ExecCommand(pod.Namespace, pod.Name, nil, &container, "sh", "-c", loadCmd)
+			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", token, pid, javaFlags, DST_DIR)
+			stdout, execErr := ExecCommand(pod.Namespace, pod.Name, nil, &container, shell, "-c", loadCmd)
 			if execErr != nil {
 				logrus.WithField("err", execErr).Errorf("failed to inject rook to pid %d", pid)
 				continue
@@ -153,11 +164,11 @@ func extractMatchedPids(stdout string, matchString string) ([]int, error) {
 }
 
 // queryJavaProcesses inspects container for running java processes
-func queryJavaProcesses(pod *v1.Pod, container *v1.Container) ([]int, error) {
+func queryJavaProcesses(shell string, pod *v1.Pod, container *v1.Container) ([]int, error) {
 	logrus.Infof("Inspecting container '%s' for java processes", container.Name)
 
 	stdout, err := ExecCommand(pod.Namespace, pod.Name, nil, container,
-		"sh", "-c", PS_CMD)
+		shell, "-c", PS_CMD)
 
 	if err != nil {
 		logrus.Warnf("Failed to retrieve process list: %v", err)
