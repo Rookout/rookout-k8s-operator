@@ -23,6 +23,18 @@ kubectl delete -f ./config/samples/deployment.yaml
 kubectl delete -f ./config/samples/rookout_v1alpha1_rookout.yaml
 ```
 
+### How a successful rook injection looks in the operator's logs ?
+```
+time="2021-01-17T12:12:45Z" level=info msg="Inspecting container 'java-test-adi' for java processes"
+time="2021-01-17T12:12:46Z" level=info msg="Java processes: [7]"
+time="2021-01-17T12:12:46Z" level=info msg="container: java-test-adi, java processes: [7]"
+time="2021-01-17T12:12:46Z" level=info msg="Copying the content of '/var/rookout' directory to 'default/java-test-adi-f97bfbf5-pqk52/java-test-adi:/rookout'"
+time="2021-01-17T12:12:46Z" level=info msg="Creating 'default/java-test-adi-f97bfbf5-pqk52/java-test-adi:/rookout' if not exists."
+time="2021-01-17T12:12:46Z" level=info msg="Copying the content of '/var/rookout' directory to 'default/java-test-adi-f97bfbf5-pqk52/java-test-adi:/rookout' finished"
+time="2021-01-17T12:12:50Z" level=info msg="[Rookout] Testing connection to controller\n[Rookout] Rookout version: 0.1.153\n[Rookout] Injecting Java Agent to process id - 7\n[Rookout] Injected successfully\n"
+```
+
+
 ## Code structure
 - Operator's entry point : [controllers/rookout_controller.go](./controllers/rookout_controller.go)
 
