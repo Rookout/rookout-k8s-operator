@@ -7,6 +7,9 @@ Rookout's k8s operator
 - Install Rookout's SDK on running containers  
 - Inject pod metadata into containers to be collected by the SDK
 
+## Supported Runtimes
+- Java (version >= 8) 
+
 ## How to install the operator on a cluster ? 
 ```
 # install the operator
@@ -37,8 +40,8 @@ time="2021-01-17T12:12:50Z" level=info msg="[Rookout] Testing connection to cont
 
 ## Code structure
 - Project's initial structure created by `operator-sdk init`
-- Operator's entry point : [controllers/rookout_controller.go](./controllers/rookout_controller.go)
-
+- Operator's entry point : [/controllers/rookout_controller.go](./controllers/rookout_controller.go)
+- Operator Resource API : [/api/v1alpha1/rookout_types.go](./api/v1alpha1/rookout_types.go)
 
 ## Repo local setup - should be done only once after repo checkout
 - Install operator sdk:  `brew install operator-sdk`
@@ -46,6 +49,10 @@ time="2021-01-17T12:12:50Z" level=info msg="[Rookout] Testing connection to cont
 
 ## Build
 `make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0`
+
+## Known issues
+- Can't inject to PID=1 on linux alpine with openjdk < 14
+- Java 7 requires Suns's tools.jar
 
 
 ## References
