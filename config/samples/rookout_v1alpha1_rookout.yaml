@@ -3,5 +3,6 @@ kind: Rookout
 metadata:
   name: rookout-sample
 spec:
-  # Add fields here
-  foo: bar
+  rookout_token: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
+  pods_matcher: "java-test"
+  java_proc_matcher: "java -jar"

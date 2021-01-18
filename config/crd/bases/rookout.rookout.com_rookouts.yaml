@@ -36,9 +36,11 @@ spec:
           spec:
             description: RookoutSpec defines the desired state of Rookout
             properties:
-              foo:
-                description: Foo is an example field of Rookout. Edit Rookout_types.go
-                  to remove/update
+              java_proc_matcher:
+                type: string
+              pods_matcher:
+                type: string
+              rookout_token:
                 type: string
             type: object
           status:

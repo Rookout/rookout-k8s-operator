@@ -7,11 +7,15 @@ Rookout's k8s operator
 - Install Rookout's SDK on running containers  
 - Inject pod metadata into containers to be collected by the SDK
 
+## Code structure
+- Operator's entry point : [controllers/rookout_controller.go](./controllers/rookout_controller.go)
+
+
 ## Repo local setup - should be done only once after repo checkout
 ### install operator sdk
 `brew install operator-sdk`
 
-### init repo
+### Init repo
 `make all`
 
 # Build

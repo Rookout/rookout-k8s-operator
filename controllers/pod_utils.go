@@ -107,7 +107,7 @@ func (p PodUtils) ExecCommand(useShell bool, command ...string) (string, error) 
 
 	execReq.VersionedParams(&v1.PodExecOptions{
 		Container: p.container.Name,
-		Command:   command,
+		Command:   wrappedCommand,
 		Stdout:    true,
 		Stderr:    true,
 		Stdin:     p.stdinReader != nil,

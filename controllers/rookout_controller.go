@@ -1,19 +1,3 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controllers
 
 import (
@@ -24,6 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,51 +18,71 @@ import (
 	rookoutv1alpha1 "github.com/rookout/rookout-k8s-operator/api/v1alpha1"
 )
 
-// RookoutReconciler reconciles a Rookout object
 type RookoutReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
+type OperatorState struct {
+	IsReady         bool
+	RookoutToken    string
+	PodsMatcher     string
+	JavaProcMatcher string
+}
+
+var OpState = OperatorState{IsReady: false}
+
 const (
-	POD_NAME          = "java-test"
-	SRC_DIR           = "/var/rookout"
-	DST_DIR           = "/rookout"
-	PS_CMD            = "ps"
-	JAVA_PROC_MATCHER = "java -jar"
-	// disable reflection warning
-	// ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/
-	JAVA_FLAGS            = "--add-opens java.base/java.net=ALL-UNNAMED"
-	ROOKOUT_TOKEN         = "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
-	INJECTION_SUCCESS_LOG = "Injected successfully"
+	SRC_DIR                   = "/var/rookout"
+	DST_DIR                   = "/rookout"
+	PS_CMD                    = "ps"
+	DEFAULT_JAVA_PROC_MATCHER = "java -jar"
+	JAVA_FLAGS                = "--add-opens java.base/java.net=ALL-UNNAMED" // disable reflection warning. ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/ "
+	INJECTION_SUCCESS_LOG     = "Injected successfully"
+	REQUEUE_AFTER             = 10 * time.Second
 )
 
+// Annotation for generating RBAC for operator's own resources
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update
 
-// Annotation for generating RBAC role to Watch Pods
+// Annotation for generating RBAC to Watch Pods
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;watch;list
 // +kubebuilder:rbac:groups="",resources="pods/exec",verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Rookout object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	pod := v1.Pod{}
-	err := r.Client.Get(ctx, req.NamespacedName, &pod)
-	if err != nil {
-		return ctrl.Result{}, err
+	// first check if the request is a Rookout resource
+	rookoutResource := rookoutv1alpha1.Rookout{}
+	err := r.Client.Get(ctx, req.NamespacedName, &rookoutResource)
+
+	// if fetched successfully, handle it
+	if err == nil && rookoutResource.Spec.RookoutToken != "" {
+		OpState.IsReady = true
+		OpState.RookoutToken = rookoutResource.Spec.RookoutToken
+		OpState.PodsMatcher = rookoutResource.Spec.PodsMatcher
+		OpState.JavaProcMatcher = rookoutResource.Spec.JavaProcMatcher
+		return ctrl.Result{}, nil
 	}
 
-	if !strings.Contains(pod.Name, POD_NAME) {
+	if !OpState.IsReady {
+		logrus.Infof("Operator not ready yet. Requeue request for %v seconds", REQUEUE_AFTER)
+		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil
+	}
+
+	// if we reached here the request resource should be a POD (not Rookout resource)
+	pod := v1.Pod{}
+	err = r.Client.Get(ctx, req.NamespacedName, &pod)
+	if err != nil {
+		logrus.Infof("Pod not found - %s", req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+
+	if OpState.PodsMatcher != "" && !strings.Contains(pod.Name, OpState.PodsMatcher) {
 		return ctrl.Result{}, nil
 	}
 
@@ -96,7 +101,12 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			continue
 		}
 
-		javaPids, pidErr := podUtils.QueryMatchedProcesses(JAVA_PROC_MATCHER)
+		javaProcMatcher := DEFAULT_JAVA_PROC_MATCHER
+		if OpState.JavaProcMatcher != "" {
+			javaProcMatcher = OpState.JavaProcMatcher
+		}
+
+		javaPids, pidErr := podUtils.QueryMatchedProcesses(javaProcMatcher)
 		if pidErr != nil {
 			logrus.WithField("err", pidErr).Errorf("Failed to retrieve java processes from container %v", container.Name)
 			continue
@@ -115,7 +125,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		for _, pid := range javaPids {
-			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", ROOKOUT_TOKEN, pid, JAVA_FLAGS, DST_DIR)
+			loadCmd := fmt.Sprintf("ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", OpState.RookoutToken, pid, JAVA_FLAGS, DST_DIR)
 			stdout, execErr := podUtils.ExecCommand(true, loadCmd)
 
 			if execErr != nil {

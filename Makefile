@@ -44,6 +44,9 @@ run: generate fmt vet manifests
 install: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
+install_yaml: manifests kustomize
+	$(KUSTOMIZE) build config/crd > install.yaml
+
 # Uninstall CRDs from a cluster
 uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
@@ -52,6 +55,10 @@ uninstall: manifests kustomize
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+deploy_yaml: manifests kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > deployment.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
@@ -125,5 +132,7 @@ build-and-deploy:
 	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
 	kubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml
 
+deployment_yamls:
+	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
 log:
 	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager
