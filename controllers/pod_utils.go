@@ -102,6 +102,8 @@ func (p PodUtils) ExecCommand(useShell bool, command ...string) (string, error) 
 
 	wrappedCommand = append(wrappedCommand, command...)
 
+	logrus.Infof("executing command: %s", wrappedCommand)
+
 	execReq := kubeClient.CoreV1().RESTClient().Post()
 	execReq = execReq.Resource("pods").Name(p.podName).Namespace(p.namespace).SubResource("exec")
 
@@ -116,14 +118,12 @@ func (p PodUtils) ExecCommand(useShell bool, command ...string) (string, error) 
 	exec, err := remotecommand.NewSPDYExecutor(inClusterConfig, "POST", execReq.URL())
 
 	if err != nil {
-		logrus.Errorf("Creating remote command executor failed: %v", err)
 		return "", err
 	}
 
 	stdOut := bytes.Buffer{}
 	stdErr := bytes.Buffer{}
 
-	logrus.Debugf("Executing command '%v' in namespace='%s', pod='%s', container='%s'", wrappedCommand, p.namespace, p.podName, p.container.Name)
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: bufio.NewWriter(&stdOut),
 		Stderr: bufio.NewWriter(&stdErr),
@@ -131,16 +131,10 @@ func (p PodUtils) ExecCommand(useShell bool, command ...string) (string, error) 
 		Tty:    false,
 	})
 
-	logrus.Debugf("Command stderr: %s", stdErr.String())
-	logrus.Debugf("Command stdout: %s", stdOut.String())
-
 	if err != nil {
-		logrus.Infof("Executing command failed with: %v", err)
-
 		return "", err
 	}
 
-	logrus.Debug("Command succeeded.")
 	if stdErr.Len() > 0 {
 		return "", fmt.Errorf("stderr: %v", stdErr.String())
 	}
@@ -327,14 +321,24 @@ func extractMatchedPids(stdout string, matchString string) ([]int, error) {
 			continue
 		}
 
+		pidStr := ""
 		idAndClassName := strings.Split(proc, " ")
-		trimmedPid := strings.Trim(strings.TrimSpace(idAndClassName[4]), "\t")
+		for _, element := range idAndClassName {
+			if element != "" {
+				pidStr = element
+				break
+			}
+		}
 
-		if trimmedPid == "" {
+		if pidStr == "" {
+			return nil, errors.New("pid not found")
+		}
+
+		if pidStr == "" {
 			continue
 		}
 
-		pid, err := strconv.Atoi(trimmedPid)
+		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
 			return nil, err
 		}
@@ -346,22 +350,16 @@ func extractMatchedPids(stdout string, matchString string) ([]int, error) {
 }
 
 func (p PodUtils) QueryMatchedProcesses(matchStr string) ([]int, error) {
-	logrus.Infof("Inspecting container '%s' for matched processes for %s", p.container.Name, matchStr)
-
 	stdout, err := p.ExecCommand(true, PS_CMD)
 
 	if err != nil {
-		logrus.Warnf("Failed to retrieve process list: %v", err)
 		return nil, err
 	} else {
 
 		ProcessIds, extractErr := extractMatchedPids(stdout, matchStr)
 		if extractErr != nil {
-			logrus.Warnf("Failed to extract pid for matched processes: %v", extractErr)
 			return nil, err
 		}
-
-		logrus.Infof("Matched processes: %v", ProcessIds)
 
 		return ProcessIds, nil
 	}

@@ -37,14 +37,15 @@ var OpState = OperatorState{IsReady: false}
 
 const (
 	SRC_DIR                   = "/var/rookout"
-	DST_DIR                   = "/rookout"
-	PS_CMD                    = "ps"
+	DST_DIR                   = "/var/rookout"
+	PS_CMD                    = "ps -x"
 	DEFAULT_JAVA_PROC_MATCHER = "java -jar"
-	JAVA_FLAGS                = "--add-opens java.base/java.net=ALL-UNNAMED" // disable reflection warning. ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/ "
-	INJECTION_SUCCESS_LOG     = "Injected successfully"
-	REQUEUE_AFTER             = 10 * time.Second
-	DEFAULT_ROOKOUT_HOST      = "wss://control.rookout.com"
-	DEFAULT_ROOKOUT_PORT      = "443"
+	// TODO : detect java version before adding flags since those flags not supported on java 7
+	// JAVA_FLAGS                = "--add-opens java.base/java.net=ALL-UNNAMED" // disable reflection warning. ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/ "
+	INJECTION_SUCCESS_LOG = "Injected successfully"
+	REQUEUE_AFTER         = 10 * time.Second
+	DEFAULT_ROOKOUT_HOST  = "wss://control.rookout.com"
+	DEFAULT_ROOKOUT_PORT  = "443"
 )
 
 // Annotation for generating RBAC for operator's own resources
@@ -93,12 +94,18 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if len(pod.Status.ContainerStatuses) > 0 {
-		logrus.Infof("namespace: %s, name: %s, is ready : %v, status len: %v", req.Namespace, req.Name, pod.Status.ContainerStatuses[0].Ready, len(pod.Status.ContainerStatuses))
-		if !pod.Status.ContainerStatuses[0].Ready {
-			return ctrl.Result{}, nil
-		}
+	if len(pod.Status.ContainerStatuses) == 0 {
+		logrus.Infof("namespace: %s, name: %s has no status", req.Namespace, req.Name)
+		return ctrl.Result{}, nil
 	}
+
+	// TODO: figure how to detect a terminating container which could also contain status ready
+	if !pod.Status.ContainerStatuses[0].Ready {
+		logrus.Infof("namespace: %s, name: %s, status: not ready", req.Namespace, req.Name)
+		return ctrl.Result{}, nil
+	}
+
+	logrus.Infof("container statuses: %v", pod.Status.ContainerStatuses)
 
 	for _, container := range pod.Spec.Containers {
 		podUtils, podUtilsErr := NewPodUtils(pod.Namespace, pod.Name, nil, &container)
@@ -125,6 +132,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		logrus.Infof("container: %s, java processes: %v", container.Name, javaPids)
 
+		// TODO : delete copied files after injection
 		copyErr := podUtils.CopyToPod(SRC_DIR, DST_DIR)
 		if copyErr != nil {
 			logrus.WithField("err", copyErr).Errorf("failed to copy rook loader to container %v", container.Name)
@@ -144,17 +152,20 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logrus.Infof("controller: %s:%s", controllerHost, controllerPort)
 
 		for _, pid := range javaPids {
-			// TODO : detect java version before adding flags since those flags not supported on java 7
-			loadCmd := fmt.Sprintf("ROOKOUT_CONTROLLER_PORT=:%s ROOKOUT_CONTROLLER_HOST=%s ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java %s -jar %s/rook.jar", controllerPort, controllerHost, OpState.RookoutToken, pid, JAVA_FLAGS, DST_DIR)
+			// TODO : test what happens if wh inject twice
+			loadCmd := fmt.Sprintf("ROOKOUT_LOG_LEVEL=DEBUG ROOKOUT_LOG_TO_STDERR=1 ROOKOUT_CONTROLLER_PORT=:%s ROOKOUT_CONTROLLER_HOST=%s ROOKOUT_TOKEN=%s ROOKOUT_TARGET_PID=%d java -jar %s/rook.jar", controllerPort, controllerHost, OpState.RookoutToken, pid, DST_DIR)
 			stdout, execErr := podUtils.ExecCommand(true, loadCmd)
 
 			if execErr != nil {
-				logrus.WithField("err", execErr).Errorf("failed to inject rook to pid %d", pid)
+				logrus.WithFields(logrus.Fields{
+					"err":    execErr,
+					"stdout": stdout,
+				}).Errorf("failed to inject rook to pid %d", pid)
 				continue
 			}
 
 			if !strings.Contains(stdout, INJECTION_SUCCESS_LOG) {
-				logrus.WithField("err", stdout).Errorf("failed to inject rook to pid %d", pid)
+				logrus.WithField("stdout", stdout).Errorf("failed to inject rook to pid %d (no success log found)", pid)
 				continue
 			}
 

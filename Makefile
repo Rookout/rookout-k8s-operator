@@ -135,4 +135,4 @@ build-and-deploy:
 deployment_yamls:
 	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
 log:
-	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager
+	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f

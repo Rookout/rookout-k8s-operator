@@ -10,7 +10,7 @@ func TestExtractPids(t *testing.T) {
 	stdout := `
 PID   USER     TIME  COMMAND
     1 root      0:00 /bin/ash /app/entrypoint.sh
-    7 root      0:16 /usr/bin/java -jar /app/app.jar
+   77 root      0:16 /usr/bin/java -jar /app/app.jar
   238 root      0:00 /bin/sh
   244 root      0:00 ps
 `
@@ -18,5 +18,17 @@ PID   USER     TIME  COMMAND
 	pids, err := extractMatchedPids(stdout, "java -jar")
 	assert.NoError(err)
 
-	assert.Equal(pids, []int{7})
+	assert.Equal(pids, []int{77})
+
+	stdout = `
+    PID TTY      STAT   TIME COMMAND
+      1 ?        Ssl    0:10 java -jar /app/app.jar
+    147 pts/0    Ss     0:00 /bin/bash
+    161 pts/0    R+     0:00 ps -x
+`
+
+	pids, err = extractMatchedPids(stdout, "java -jar")
+	assert.NoError(err)
+
+	assert.Equal(pids, []int{1})
 }
