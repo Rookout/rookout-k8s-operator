@@ -1,26 +1,45 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // !!!!!!!!!!
-// make sure to run "make manifests" after everytime you change this file
+// make sure to run "make deployment_yamls" after everytime you change this file
 // !!!!!!!!!!
+
+type ContainerMatcher struct {
+	Matcher string      `json:"matcher,omitempty"`
+	EnvVars []v1.EnvVar `json:"env_vars,omitempty"`
+}
+
+type DeploymentMatcher struct {
+	Matcher string      `json:"matcher,omitempty"`
+	EnvVars []v1.EnvVar `json:"env_vars,omitempty"`
+}
+
+type LabelsMatcher struct {
+	Matcher map[string]string `json:"matcher,omitempty"`
+	EnvVars []v1.EnvVar       `json:"env_vars,omitempty"`
+}
+
+type Matchers struct {
+	ContainerMatcher  ContainerMatcher  `json:"container_matcher,omitempty"`
+	DeploymentMatcher DeploymentMatcher `json:"deployment_matcher,omitempty"`
+	LabelsMatcher     LabelsMatcher     `json:"labels_matcher,omitempty"`
+}
 
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	Token           string `json:"rookout_token,omitempty"`
-	ControllerHost  string `json:"rookout_controller_host,omitempty"`
-	ControllerPort  string `json:"rookout_controller_port,omitempty"`
-	JavaProcMatcher string `json:"java_proc_matcher,omitempty"`
-	PodsMatcher     string `json:"pods_matcher,omitempty"`
+	Matchers       Matchers    `json:"matchers,omitempty"`
+	RookoutEnvVars []v1.EnvVar `json:"rookout_env_vars,omitempty"`
 }
 
 // RookoutStatus defines the observed state of Rookout
 type RookoutStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// TODO: consider using this objet to represent our operator state
+	// Instead of the internal struct
 }
 
 // +kubebuilder:object:root=true

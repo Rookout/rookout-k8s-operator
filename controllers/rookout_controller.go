@@ -26,25 +26,21 @@ type RookoutReconciler struct {
 }
 
 type OperatorState struct {
-	IsReady         bool
-	RookoutToken    string
-	PodsMatcher     string
-	JavaProcMatcher string
-	ControllerHost  string
-	ControllerPort  string
+	IsReady        bool
+	RookoutEnvVars []v1.EnvVar
+	Matchers       rookoutv1alpha1.Matchers
 }
 
 var OpState = OperatorState{IsReady: false}
 
 const (
 	REQUEUE_AFTER                          = 10 * time.Second
-	DEFAULT_ROOKOUT_HOST                   = "wss://control.rookout.com"
-	DEFAULT_ROOKOUT_PORT                   = "443"
 	AGENT_INIT_CONTAINER_NAME              = "agent-init-container"
 	AGENT_INIT_CONTAINER_IMAGE             = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
 	AGENT_INIT_CONTAINER_IMAGE_PULL_POLICY = v1.PullAlways
 	AGENT_SHARED_VOLUEME_NAME              = "rookout-agent-shared-volume"
 	AGENT_SHARED_VOLUEME_MOUNT_PATH        = "/rookout"
+	ROOKOUT_ENV_VAR_PREFFIX                = "ROOKOUT_"
 )
 
 // Operator permissions
@@ -55,6 +51,8 @@ const (
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;watch;list;patch
 // +kubebuilder:rbac:groups="",resources="pods/exec",verbs=create
 
+// TODO : document what we support in the docs - currently only deployments
+
 //  !!!! This Reconcile function handles both Rookout & Deployment resources !!!!
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// first check if the request is a Rookout resource
@@ -62,19 +60,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err := r.Client.Get(ctx, req.NamespacedName, &rookoutResource)
 
 	// if fetched successfully, handle it
-	if err == nil && rookoutResource.Spec.Token != "" {
+	if err == nil {
 		OpState.IsReady = true
-		OpState.RookoutToken = rookoutResource.Spec.Token
-		OpState.PodsMatcher = rookoutResource.Spec.PodsMatcher
-		OpState.JavaProcMatcher = rookoutResource.Spec.JavaProcMatcher
-		OpState.ControllerHost = rookoutResource.Spec.ControllerHost
-		OpState.ControllerPort = rookoutResource.Spec.ControllerPort
-
+		OpState.RookoutEnvVars = rookoutResource.Spec.RookoutEnvVars
+		OpState.Matchers = rookoutResource.Spec.Matchers
 		return ctrl.Result{}, nil
 	}
 
 	if !OpState.IsReady {
-		logrus.Infof("operator not ready yet. Requeue request for %v seconds", REQUEUE_AFTER)
 		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil
 	}
 
@@ -86,8 +79,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if OpState.PodsMatcher != "" && !strings.Contains(deployment.Name, OpState.PodsMatcher) {
-		logrus.Infof("deployment %s not matched to \"%s\"", deployment.Name, OpState.PodsMatcher)
+	if isDeploymentMatched(deployment) {
 		return ctrl.Result{}, nil
 	}
 
@@ -100,11 +92,61 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
+func labelsContains(expectedLabels, actualLabels map[string]string) bool {
+	for expectedLabelName, expectedLabelValue := range expectedLabels {
+		labelMatched := false
+
+		for labelName, labelValue := range actualLabels {
+			if labelName == expectedLabelName && labelValue == expectedLabelValue {
+				labelMatched = true
+				break
+			}
+		}
+
+		if !labelMatched {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isDeploymentMatched(deployment apps.Deployment) bool {
+	if OpState.Matchers.DeploymentMatcher.Matcher != "" && !strings.Contains(deployment.Name, OpState.Matchers.DeploymentMatcher.Matcher) {
+		return false
+	}
+
+	if OpState.Matchers.LabelsMatcher.Matcher != nil {
+		return labelsContains(OpState.Matchers.LabelsMatcher.Matcher, deployment.Labels)
+	}
+
+	return true
+}
+
+func isContainerMatched(container v1.Container) bool {
+	if OpState.Matchers.ContainerMatcher.Matcher != "" && !strings.Contains(container.Name, OpState.Matchers.ContainerMatcher.Matcher) {
+		return false
+	}
+
+	return true
+}
+
+func setRookoutEnvVars(env *[]v1.EnvVar, evnVars []v1.EnvVar) {
+	for _, envVar := range evnVars {
+		if !strings.HasPrefix(envVar.Name, ROOKOUT_ENV_VAR_PREFFIX) {
+			logrus.Warnf("%s is not a valid env variable because its lack of %s prefix.", ROOKOUT_ENV_VAR_PREFFIX, envVar.Name)
+			continue
+		}
+
+		*env = append(*env, envVar)
+	}
+}
+
 func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deployment *apps.Deployment) error {
+	shouldPatch := false
 
 	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
 		if initContainer.Name == AGENT_INIT_CONTAINER_NAME {
-			logrus.Infof("init container already exists in deployment %s", deployment.Name)
 			return nil
 		}
 	}
@@ -113,34 +155,28 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 
 	var updatedContainers []v1.Container
 
-	controllerHost := DEFAULT_ROOKOUT_HOST
-	if OpState.ControllerHost != "" {
-		controllerHost = OpState.ControllerHost
-	}
-
-	controllerPort := DEFAULT_ROOKOUT_PORT
-	if OpState.ControllerPort != "" {
-		controllerPort = OpState.ControllerPort
-	}
-
 	for _, container := range deployment.Spec.Template.Spec.Containers {
+
+		if !isContainerMatched(container) {
+			continue
+		}
+
+		if OpState.Matchers.ContainerMatcher.EnvVars != nil {
+			setRookoutEnvVars(&container.Env, OpState.Matchers.ContainerMatcher.EnvVars)
+		}
+
+		if OpState.Matchers.DeploymentMatcher.EnvVars != nil {
+			setRookoutEnvVars(&container.Env, OpState.Matchers.DeploymentMatcher.EnvVars)
+		}
+
+		if OpState.RookoutEnvVars != nil {
+			setRookoutEnvVars(&container.Env, OpState.RookoutEnvVars)
+		}
+
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
 			Value: fmt.Sprintf("-javaagent:%s/rook.jar", AGENT_SHARED_VOLUEME_MOUNT_PATH),
-		},
-			v1.EnvVar{
-				Name:  "ROOKOUT_TOKEN",
-				Value: OpState.RookoutToken,
-			},
-			v1.EnvVar{
-				Name:  "ROOKOUT_CONTROLLER_HOST",
-				Value: controllerHost,
-			},
-			v1.EnvVar{
-				Name:  "ROOKOUT_CONTROLLER_PORT",
-				Value: controllerPort,
-			},
-		)
+		})
 
 		container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
 			Name:      AGENT_SHARED_VOLUEME_NAME,
@@ -148,6 +184,11 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 		})
 
 		updatedContainers = append(updatedContainers, container)
+		shouldPatch = true
+	}
+
+	if !shouldPatch {
+		return nil
 	}
 
 	deployment.Spec.Template.Spec.Containers = updatedContainers
@@ -178,6 +219,7 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 // SetupWithManager sets up the controller with the Manager.
 func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		// TODO : handle deployment events in dedicated reconcile func
 		Watches(&source.Kind{Type: &apps.Deployment{}}, &handler.EnqueueRequestForObject{}).
 		For(&rookoutv1alpha1.Rookout{}).
 		Complete(r)
