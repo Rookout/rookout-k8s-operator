@@ -10,11 +10,11 @@ import (
 
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	RookoutToken          string `json:"rookout_token,omitempty"`
-	RookoutControllerHost string `json:"rookout_controller_host,omitempty"`
-	RookoutControllerPort string `json:"rookout_controller_port,omitempty"`
-	JavaProcMatcher       string `json:"java_proc_matcher,omitempty"`
-	PodsMatcher           string `json:"pods_matcher,omitempty"`
+	Token           string `json:"rookout_token,omitempty"`
+	ControllerHost  string `json:"rookout_controller_host,omitempty"`
+	ControllerPort  string `json:"rookout_controller_port,omitempty"`
+	JavaProcMatcher string `json:"java_proc_matcher,omitempty"`
+	PodsMatcher     string `json:"pods_matcher,omitempty"`
 }
 
 // RookoutStatus defines the observed state of Rookout

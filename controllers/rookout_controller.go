@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -42,10 +43,13 @@ const (
 	DEFAULT_JAVA_PROC_MATCHER = "java -jar"
 	// TODO : detect java version before adding flags since those flags not supported on java 7
 	// JAVA_FLAGS                = "--add-opens java.base/java.net=ALL-UNNAMED" // disable reflection warning. ref : https://nipafx.dev/five-command-line-options-hack-java-module-system/ "
-	INJECTION_SUCCESS_LOG = "Injected successfully"
-	REQUEUE_AFTER         = 10 * time.Second
-	DEFAULT_ROOKOUT_HOST  = "wss://control.rookout.com"
-	DEFAULT_ROOKOUT_PORT  = "443"
+	INJECTION_SUCCESS_LOG                  = "Injected successfully"
+	REQUEUE_AFTER                          = 10 * time.Second
+	DEFAULT_ROOKOUT_HOST                   = "wss://control.rookout.com"
+	DEFAULT_ROOKOUT_PORT                   = "443"
+	AGENT_INIT_CONTAINER_NAME              = "agent-init-container"
+	AGENT_INIT_CONTAINER_IMAGE             = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
+	AGENT_INIT_CONTAINER_IMAGE_PULL_POLICY = v1.PullAlways
 )
 
 // Annotation for generating RBAC for operator's own resources
@@ -53,8 +57,8 @@ const (
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update
 
-// Annotation for generating RBAC to Watch Pods
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;watch;list
+// Annotation for generating RBAC to Watch  & Deployments
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;watch;list;patch
 // +kubebuilder:rbac:groups="",resources="pods/exec",verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -66,13 +70,13 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err := r.Client.Get(ctx, req.NamespacedName, &rookoutResource)
 
 	// if fetched successfully, handle it
-	if err == nil && rookoutResource.Spec.RookoutToken != "" {
+	if err == nil && rookoutResource.Spec.Token != "" {
 		OpState.IsReady = true
-		OpState.RookoutToken = rookoutResource.Spec.RookoutToken
+		OpState.RookoutToken = rookoutResource.Spec.Token
 		OpState.PodsMatcher = rookoutResource.Spec.PodsMatcher
 		OpState.JavaProcMatcher = rookoutResource.Spec.JavaProcMatcher
-		OpState.ControllerHost = rookoutResource.Spec.RookoutControllerHost
-		OpState.ControllerPort = rookoutResource.Spec.RookoutControllerPort
+		OpState.ControllerHost = rookoutResource.Spec.ControllerHost
+		OpState.ControllerPort = rookoutResource.Spec.ControllerPort
 
 		return ctrl.Result{}, nil
 	}
@@ -83,30 +87,80 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// if we reached here the request resource should be a POD (not Rookout resource)
-	pod := v1.Pod{}
-	err = r.Client.Get(ctx, req.NamespacedName, &pod)
+	deployment := apps.Deployment{}
+	err = r.Client.Get(ctx, req.NamespacedName, &deployment)
+
 	if err != nil {
-		logrus.Infof("pod not found - %s", req.NamespacedName)
+		logrus.Infof("deployment not found - %s", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
-	if OpState.PodsMatcher != "" && !strings.Contains(pod.Name, OpState.PodsMatcher) {
+	//if OpState.PodsMatcher != "" && !strings.Contains(pod.Name, OpState.PodsMatcher) {
+	//	logrus.Infof("pod %s not matched to \"%s\"", pod.Name, OpState.PodsMatcher)
+	//	return ctrl.Result{}, nil
+	//}
+	//
+	//if len(pod.Status.ContainerStatuses) == 0 {
+	//	logrus.Infof("namespace: %s, name: %s has no status", req.Namespace, req.Name)
+	//	return ctrl.Result{}, nil
+	//}
+	//
+	//// TODO: figure how to detect a terminating container which could also contain status ready
+	//if !pod.Status.ContainerStatuses[0].Ready {
+	//	logrus.Infof("namespace: %s, name: %s, status: not ready", req.Namespace, req.Name)
+	//	return ctrl.Result{}, nil
+	//}
+
+	if OpState.PodsMatcher != "" && !strings.Contains(deployment.Name, OpState.PodsMatcher) {
+		logrus.Infof("deployment %s not matched to \"%s\"", deployment.Name, OpState.PodsMatcher)
 		return ctrl.Result{}, nil
 	}
 
-	if len(pod.Status.ContainerStatuses) == 0 {
-		logrus.Infof("namespace: %s, name: %s has no status", req.Namespace, req.Name)
-		return ctrl.Result{}, nil
+	err = r.addAgentViaInitContainer(ctx, &deployment)
+
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// TODO: figure how to detect a terminating container which could also contain status ready
-	if !pod.Status.ContainerStatuses[0].Ready {
-		logrus.Infof("namespace: %s, name: %s, status: not ready", req.Namespace, req.Name)
-		return ctrl.Result{}, nil
+	//logrus.Infof("container statuses: %v", pod.Status.ContainerStatuses)
+
+	return ctrl.Result{}, nil
+}
+
+func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deployment *apps.Deployment) error {
+	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
+		if initContainer.Name == AGENT_INIT_CONTAINER_NAME {
+			logrus.Infof("init container already exists in deployment %s", deployment.Name)
+			return nil
+		}
 	}
 
-	logrus.Infof("container statuses: %v", pod.Status.ContainerStatuses)
+	patch := client.MergeFrom(deployment.DeepCopy())
 
+	// TODO : add env var only for relevant containers
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		container.Env = append(container.Env, v1.EnvVar{
+			Name:  "JAVA_TOOL_OPTIONS",
+			Value: "-javaagent:/var/rookout/rook.jar",
+		})
+	}
+
+	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, v1.Container{
+		Image:           AGENT_INIT_CONTAINER_IMAGE,
+		ImagePullPolicy: AGENT_INIT_CONTAINER_IMAGE_PULL_POLICY,
+		Name:            AGENT_INIT_CONTAINER_NAME,
+	})
+
+	err := r.Client.Patch(ctx, deployment, patch)
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("init container added to deployment %s", deployment.Name)
+	return nil
+}
+
+func (r *RookoutReconciler) InjectAgent(pod *v1.Pod) error {
 	for _, container := range pod.Spec.Containers {
 		podUtils, podUtilsErr := NewPodUtils(pod.Namespace, pod.Name, nil, &container)
 
@@ -173,13 +227,14 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
+		//Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &apps.Deployment{}}, &handler.EnqueueRequestForObject{}).
 		For(&rookoutv1alpha1.Rookout{}).
 		Complete(r)
 }

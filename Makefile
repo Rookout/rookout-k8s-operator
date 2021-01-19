@@ -136,3 +136,9 @@ deployment_yamls:
 	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
 log:
 	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f
+
+build_init_container:
+	docker build -f InitContainer.Dockerfile . -t us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0
+
+push_init_container:
+	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0
