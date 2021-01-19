@@ -50,6 +50,8 @@ const (
 	AGENT_INIT_CONTAINER_NAME              = "agent-init-container"
 	AGENT_INIT_CONTAINER_IMAGE             = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
 	AGENT_INIT_CONTAINER_IMAGE_PULL_POLICY = v1.PullAlways
+	AGENT_SHARED_VOLUEME_NAME              = "rookout-agent-shared-volume"
+	AGENT_SHARED_VOLUEME_MOUNT_PATH        = "/rookout"
 )
 
 // Annotation for generating RBAC for operator's own resources
@@ -128,6 +130,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deployment *apps.Deployment) error {
+
 	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
 		if initContainer.Name == AGENT_INIT_CONTAINER_NAME {
 			logrus.Infof("init container already exists in deployment %s", deployment.Name)
@@ -138,17 +141,42 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 	patch := client.MergeFrom(deployment.DeepCopy())
 
 	// TODO : add env var only for relevant containers
+
+	var updatedContainers []v1.Container
+
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
-			Value: "-javaagent:/var/rookout/rook.jar",
+			Value: fmt.Sprintf("-javaagent:%s/rook.jar", AGENT_SHARED_VOLUEME_MOUNT_PATH),
+		},
+			v1.EnvVar{
+				Name:  "ROOKOUT_TOKEN",
+				Value: OpState.RookoutToken,
+			},
+		)
+
+		container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
+			Name:      AGENT_SHARED_VOLUEME_NAME,
+			MountPath: AGENT_SHARED_VOLUEME_MOUNT_PATH,
 		})
+
+		updatedContainers = append(updatedContainers, container)
 	}
+
+	deployment.Spec.Template.Spec.Containers = updatedContainers
+
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, v1.Volume{
+		Name:         AGENT_SHARED_VOLUEME_NAME,
+		VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+	})
 
 	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, v1.Container{
 		Image:           AGENT_INIT_CONTAINER_IMAGE,
 		ImagePullPolicy: AGENT_INIT_CONTAINER_IMAGE_PULL_POLICY,
 		Name:            AGENT_INIT_CONTAINER_NAME,
+		VolumeMounts: []v1.VolumeMount{
+			{Name: AGENT_SHARED_VOLUEME_NAME, MountPath: AGENT_SHARED_VOLUEME_MOUNT_PATH},
+		},
 	})
 
 	err := r.Client.Patch(ctx, deployment, patch)
