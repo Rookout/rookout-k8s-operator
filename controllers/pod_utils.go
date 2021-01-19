@@ -31,6 +31,10 @@ var (
 	inClusterConfig *rest.Config
 )
 
+const (
+	PS_CMD = "ps -x"
+)
+
 var SHELLS = []string{"sh", "ash"}
 
 type PodUtils struct {
