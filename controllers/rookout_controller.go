@@ -58,15 +58,13 @@ const (
 //
 // the common design pattern is that each reconcile should handle only one resource type
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// first check if the request is a Rookout resource
-	rookoutResource := rookoutv1alpha1.Rookout{}
-	err := r.Client.Get(ctx, req.NamespacedName, &rookoutResource)
+	operatorConfiguration := rookoutv1alpha1.Rookout{}
+	err := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)
 
-	// if fetched successfully, handle it
 	if err == nil {
 		OpState.IsReady = true
-		OpState.RookoutEnvVars = rookoutResource.Spec.RookoutEnvVars
-		OpState.Matchers = rookoutResource.Spec.Matchers
+		OpState.RookoutEnvVars = operatorConfiguration.Spec.RookoutEnvVars
+		OpState.Matchers = operatorConfiguration.Spec.Matchers
 		logrus.Info("operator configuration updated")
 		return ctrl.Result{}, nil
 	}
@@ -114,7 +112,6 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	patch := client.MergeFrom(deployment.DeepCopy())
 
 	var updatedContainers []v1.Container
-
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
 		containerMatched := false
@@ -130,6 +127,8 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		if !containerMatched {
 			continue
 		}
+
+		logrus.Infof("adding rookout agent to container %s of deployment %s", container.Name, deployment.Name)
 
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
@@ -170,6 +169,6 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		return err
 	}
 
-	logrus.Infof("init container added to deployment %s", deployment.Name)
+	logrus.Infof("deployment %s patched successfully", deployment.Name)
 	return nil
 }
