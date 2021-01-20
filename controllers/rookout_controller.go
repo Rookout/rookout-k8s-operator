@@ -28,7 +28,7 @@ type RookoutReconciler struct {
 type OperatorState struct {
 	IsReady        bool
 	RookoutEnvVars []v1.EnvVar
-	Matchers       rookoutv1alpha1.Matchers
+	Matchers       []rookoutv1alpha1.Matcher
 }
 
 var OpState = OperatorState{IsReady: false}
@@ -43,17 +43,20 @@ const (
 	ROOKOUT_ENV_VAR_PREFFIX                = "ROOKOUT_"
 )
 
-// Operator permissions
+// !!!!!!!!!!!!!!!!!!!!
+// Operator permissions - make sure we don't have unused permissions here
+// !!!!!!!!!!!!!!!!!!!!
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update
-//
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;watch;list;patch
 // +kubebuilder:rbac:groups="",resources="pods/exec",verbs=create
 
-// TODO : document what we support in the docs - currently only deployments
-
-//  !!!! This Reconcile function handles both Rookout & Deployment resources !!!!
+// This Reconcile function handles the following resources:
+// - Rookout
+// - Deployment
+//
+// the common design pattern is that each reconcile should handle only one resource type
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// first check if the request is a Rookout resource
 	rookoutResource := rookoutv1alpha1.Rookout{}
@@ -64,6 +67,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		OpState.IsReady = true
 		OpState.RookoutEnvVars = rookoutResource.Spec.RookoutEnvVars
 		OpState.Matchers = rookoutResource.Spec.Matchers
+		logrus.Info("operator configuration updated")
 		return ctrl.Result{}, nil
 	}
 
@@ -75,15 +79,13 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	err = r.Client.Get(ctx, req.NamespacedName, &deployment)
 
 	if err != nil {
-		logrus.Infof("deployment not found - %s", req.NamespacedName)
+		if !strings.Contains(err.Error(), "not found") {
+			logrus.Errorf("error during deployment fetch - %s", err.Error())
+		}
 		return ctrl.Result{}, nil
 	}
 
-	if isDeploymentMatched(deployment) {
-		return ctrl.Result{}, nil
-	}
-
-	err = r.addAgentViaInitContainer(ctx, &deployment)
+	err = r.patchDeployment(ctx, &deployment)
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -92,57 +94,15 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func labelsContains(expectedLabels, actualLabels map[string]string) bool {
-	for expectedLabelName, expectedLabelValue := range expectedLabels {
-		labelMatched := false
-
-		for labelName, labelValue := range actualLabels {
-			if labelName == expectedLabelName && labelValue == expectedLabelValue {
-				labelMatched = true
-				break
-			}
-		}
-
-		if !labelMatched {
-			return false
-		}
-	}
-
-	return true
+// SetupWithManager sets up the controller with the Manager.
+func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		Watches(&source.Kind{Type: &apps.Deployment{}}, &handler.EnqueueRequestForObject{}).
+		For(&rookoutv1alpha1.Rookout{}).
+		Complete(r)
 }
 
-func isDeploymentMatched(deployment apps.Deployment) bool {
-	if OpState.Matchers.DeploymentMatcher.Matcher != "" && !strings.Contains(deployment.Name, OpState.Matchers.DeploymentMatcher.Matcher) {
-		return false
-	}
-
-	if OpState.Matchers.LabelsMatcher.Matcher != nil {
-		return labelsContains(OpState.Matchers.LabelsMatcher.Matcher, deployment.Labels)
-	}
-
-	return true
-}
-
-func isContainerMatched(container v1.Container) bool {
-	if OpState.Matchers.ContainerMatcher.Matcher != "" && !strings.Contains(container.Name, OpState.Matchers.ContainerMatcher.Matcher) {
-		return false
-	}
-
-	return true
-}
-
-func setRookoutEnvVars(env *[]v1.EnvVar, evnVars []v1.EnvVar) {
-	for _, envVar := range evnVars {
-		if !strings.HasPrefix(envVar.Name, ROOKOUT_ENV_VAR_PREFFIX) {
-			logrus.Warnf("%s is not a valid env variable because its lack of %s prefix.", ROOKOUT_ENV_VAR_PREFFIX, envVar.Name)
-			continue
-		}
-
-		*env = append(*env, envVar)
-	}
-}
-
-func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deployment *apps.Deployment) error {
+func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *apps.Deployment) error {
 	shouldPatch := false
 
 	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
@@ -157,20 +117,18 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
-		if !isContainerMatched(container) {
+		containerMatched := false
+		for _, matcher := range OpState.Matchers {
+			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && labelsMatch(matcher, *deployment) {
+				setRookoutEnvVars(&container.Env, OpState.RookoutEnvVars)
+				setRookoutEnvVars(&container.Env, matcher.EnvVars)
+				containerMatched = true
+				break
+			}
+		}
+
+		if !containerMatched {
 			continue
-		}
-
-		if OpState.Matchers.ContainerMatcher.EnvVars != nil {
-			setRookoutEnvVars(&container.Env, OpState.Matchers.ContainerMatcher.EnvVars)
-		}
-
-		if OpState.Matchers.DeploymentMatcher.EnvVars != nil {
-			setRookoutEnvVars(&container.Env, OpState.Matchers.DeploymentMatcher.EnvVars)
-		}
-
-		if OpState.RookoutEnvVars != nil {
-			setRookoutEnvVars(&container.Env, OpState.RookoutEnvVars)
 		}
 
 		container.Env = append(container.Env, v1.EnvVar{
@@ -214,13 +172,4 @@ func (r *RookoutReconciler) addAgentViaInitContainer(ctx context.Context, deploy
 
 	logrus.Infof("init container added to deployment %s", deployment.Name)
 	return nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// TODO : handle deployment events in dedicated reconcile func
-		Watches(&source.Kind{Type: &apps.Deployment{}}, &handler.EnqueueRequestForObject{}).
-		For(&rookoutv1alpha1.Rookout{}).
-		Complete(r)
 }

@@ -10,6 +10,9 @@ Rookout's k8s operator
 ## Supported Runtimes
 - Java (version >= 8) 
 
+## Supported k8s resources
+- Deployment (pod resources which not part of deployment not affected by the operator) 
+
 ## How to install the operator on a cluster ? 
 ```
 # install the operator

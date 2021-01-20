@@ -142,3 +142,6 @@ build_init_container:
 
 push_init_container:
 	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0
+
+apply_config:
+	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml

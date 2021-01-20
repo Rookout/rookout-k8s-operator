@@ -8,15 +8,4 @@ spec:
       value: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
 
   matchers:
-    container_matcher:
-      matcher: "java-test"
-      env_vars:
-        - name: "ROOKOUT_BLA"
-          value: "XXX"
-        - name: "FORBIDEN_VAR"
-          value: "YYY"
-    deployment_matcher:
-      matcher: "java-test"
-      env_vars:
-        - name: "ROOKOUT_GIT"
-          value: "123"
+    - deployment : "java-test"
