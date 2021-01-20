@@ -29,7 +29,7 @@ kubectl delete -f ./config/samples/deployment.yaml
 kubectl delete -f ./config/samples/rookout_v1alpha1_rookout.yaml
 ```
 
-The following logline shows that the operator is ready to patch deployments
+### The following log line shows that the operator is ready to patch deployments
 ```
 time="2021-01-20T17:49:10Z" level=info msg="operator configuration updated"
 ```
