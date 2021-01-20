@@ -3,8 +3,9 @@ kind: Rookout
 metadata:
   name: rookout-sample
 spec:
-  rookout_token: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
-  pods_matcher: "java-test"
-  java_proc_matcher: "java -jar"
-  rookout_controller_host: "wss://control.rookout.com"
-  rookout_controller_port: "443"
+  rookout_env_vars:
+    - name: "ROOKOUT_TOKEN"
+      value: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
+
+  matchers:
+    - deployment : "java-test"

@@ -1,26 +1,31 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // !!!!!!!!!!
-// make sure to run "make manifests" after everytime you change this file
+// make sure to run "make deployment_yamls" after everytime you change this file
 // !!!!!!!!!!
+
+type Matcher struct {
+	Container  string            `json:"container,omitempty"`
+	Deployment string            `json:"deployment,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	EnvVars    []v1.EnvVar       `json:"env_vars,omitempty"`
+}
 
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	RookoutToken          string `json:"rookout_token,omitempty"`
-	RookoutControllerHost string `json:"rookout_controller_host,omitempty"`
-	RookoutControllerPort string `json:"rookout_controller_port,omitempty"`
-	JavaProcMatcher       string `json:"java_proc_matcher,omitempty"`
-	PodsMatcher           string `json:"pods_matcher,omitempty"`
+	Matchers       []Matcher   `json:"matchers,omitempty"`
+	RookoutEnvVars []v1.EnvVar `json:"rookout_env_vars,omitempty"`
 }
 
 // RookoutStatus defines the observed state of Rookout
 type RookoutStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// TODO: consider using this objet to represent our operator state
+	// Instead of the internal struct
 }
 
 // +kubebuilder:object:root=true
