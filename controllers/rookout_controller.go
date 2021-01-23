@@ -50,7 +50,6 @@ const (
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;watch;list;patch
-// +kubebuilder:rbac:groups="",resources="pods/exec",verbs=create
 
 // This Reconcile function handles the following resources:
 // - Rookout
