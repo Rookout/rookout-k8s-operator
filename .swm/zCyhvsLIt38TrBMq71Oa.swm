@@ -1,0 +1,42 @@
+{
+    "id": "zCyhvsLIt38TrBMq71Oa",
+    "name": "Test unit",
+    "dod": "",
+    "description": "Hello world unit",
+    "summary": "",
+    "hunksOrder": [
+        "controllers/rookout_controller.go_0"
+    ],
+    "tests": [],
+    "hints": [],
+    "play_mode": "walkthrough",
+    "swimmPatch": {
+        "controllers/rookout_controller.go": {
+            "diffType": "MODIFIED",
+            "fileDiffHeader": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go",
+            "hunks": [
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
+                            "Operator entry point"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -56,7 +56,6 @@",
+                        " // - Deployment",
+                        " //",
+                        " // the common design pattern is that each reconcile should handle only one resource type",
+                        "-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {",
+                        " \toperatorConfiguration := rookoutv1alpha1.Rookout{}",
+                        " \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)",
+                        " "
+                    ]
+                }
+            ]
+        }
+    },
+    "app_version": "0.3.4-0",
+    "file_version": "1.0.4",
+    "diff": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go\n@@ -56,7 +56,6 @@\n // - Deployment\n //\n // the common design pattern is that each reconcile should handle only one resource type\n-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {\n \toperatorConfiguration := rookoutv1alpha1.Rookout{}\n \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)\n \n",
+    "last_commit_sha_for_swimm_patch": "b09a927ec29e3c79d26fcc1c32d753462b792831"
+}
