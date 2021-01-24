@@ -7,7 +7,10 @@
     "hunksOrder": [
         "controllers/rookout_controller.go_0",
         "api/v1alpha1/rookout_types.go_1",
-        "api/v1alpha1/rookout_types.go_0"
+        "api/v1alpha1/rookout_types.go_0",
+        "controllers/rookout_controller.go_1",
+        "controllers/rookout_controller.go_2",
+        "controllers/rookout_controller.go_3"
     ],
     "tests": [],
     "hints": [],
@@ -17,6 +20,27 @@
             "diffType": "MODIFIED",
             "fileDiffHeader": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go",
             "hunks": [
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
+                            "In this step we define our operator required permissions"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -46,11 +46,6 @@",
+                        " // !!!!!!!!!!!!!!!!!!!!",
+                        " // Operator permissions - make sure we don't have unused permissions here",
+                        " // !!!!!!!!!!!!!!!!!!!!",
+                        "-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete",
+                        "-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch",
+                        "-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update",
+                        "-// +kubebuilder:rbac:groups=\"apps\",resources=deployments,verbs=get;watch;list;patch",
+                        "-",
+                        " // This Reconcile function handles the following resources:",
+                        " // - Rookout",
+                        " // - Deployment"
+                    ]
+                },
                 {
                     "swimmHunkMetadata": {
                         "hunkComments": [
@@ -32,6 +56,64 @@
                         " \toperatorConfiguration := rookoutv1alpha1.Rookout{}",
                         " \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)",
                         " "
+                    ]
+                },
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
+                            "In this step we check if the resource that triggered our reconcile function is a configuration resource and if so we sync our internal configuration state with its values"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -57,20 +57,6 @@",
+                        " //",
+                        " // the common design pattern is that each reconcile should handle only one resource type",
+                        " func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {",
+                        "-\toperatorConfiguration := rookoutv1alpha1.Rookout{}",
+                        "-\terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)",
+                        "-",
+                        "-\tif err == nil {",
+                        "-\t\tOpState.IsReady = true",
+                        "-\t\tOpState.RookoutEnvVars = operatorConfiguration.Spec.RookoutEnvVars",
+                        "-\t\tOpState.Matchers = operatorConfiguration.Spec.Matchers",
+                        "-\t\tlogrus.Info(\"operator configuration updated\")",
+                        "-\t\treturn ctrl.Result{}, nil",
+                        "-\t}",
+                        "-",
+                        "-\tif !OpState.IsReady {",
+                        "-\t\treturn ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil",
+                        "-\t}",
+                        " ",
+                        " \tdeployment := apps.Deployment{}",
+                        " \terr = r.Client.Get(ctx, req.NamespacedName, &deployment)"
+                    ]
+                },
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
+                            "In this step we check if we a deployment resource triggered our reconcile function and if so we patch the deployment to include Rookout's agent"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -72,18 +72,6 @@",
+                        " \t\treturn ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil",
+                        " \t}",
+                        " ",
+                        "-\tdeployment := apps.Deployment{}",
+                        "-\terr = r.Client.Get(ctx, req.NamespacedName, &deployment)",
+                        "-",
+                        "-\tif err != nil {",
+                        "-\t\tif !strings.Contains(err.Error(), \"not found\") {",
+                        "-\t\t\tlogrus.Errorf(\"error during deployment fetch - %s\", err.Error())",
+                        "-\t\t}",
+                        "-\t\treturn ctrl.Result{}, nil",
+                        "-\t}",
+                        "-",
+                        "-\terr = r.patchDeployment(ctx, &deployment)",
+                        "-",
+                        " \tif err != nil {",
+                        " \t\treturn ctrl.Result{}, err",
+                        " \t}"
                     ]
                 }
             ]
@@ -90,6 +172,6 @@
     },
     "app_version": "0.3.4-0",
     "file_version": "1.0.4",
-    "diff": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go\n@@ -56,7 +56,6 @@\n // - Deployment\n //\n // the common design pattern is that each reconcile should handle only one resource type\n-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {\n \toperatorConfiguration := rookoutv1alpha1.Rookout{}\n \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)\n \ndiff --git a/api/v1alpha1/rookout_types.go b/api/v1alpha1/rookout_types.go\nindex 08ac52b..08ac52b 100644\n--- a/api/v1alpha1/rookout_types.go\n+++ b/api/v1alpha1/rookout_types.go\n@@ -17,11 +17,6 @@\n }\n \n // RookoutSpec defines the desired state of Rookout\n-type RookoutSpec struct {\n-\tMatchers       []Matcher   `json:\"matchers,omitempty\"`\n-\tRookoutEnvVars []v1.EnvVar `json:\"rookout_env_vars,omitempty\"`\n-}\n-\n // RookoutStatus defines the observed state of Rookout\n type RookoutStatus struct {\n \t// TODO: consider using this objet to represent our operator state\n@@ -32,14 +27,6 @@\n // +kubebuilder:subresource:status\n \n // Rookout is the Schema for the rookouts API\n-type Rookout struct {\n-\tmetav1.TypeMeta   `json:\",inline\"`\n-\tmetav1.ObjectMeta `json:\"metadata,omitempty\"`\n-\n-\tSpec   RookoutSpec   `json:\"spec,omitempty\"`\n-\tStatus RookoutStatus `json:\"status,omitempty\"`\n-}\n-\n // +kubebuilder:object:root=true\n \n // RookoutList contains a list of Rookout\n",
-    "last_commit_sha_for_swimm_patch": "8bac695c9f371c845accc9f6f0f25315d01dc3df"
+    "diff": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go\n@@ -46,44 +46,12 @@\n // !!!!!!!!!!!!!!!!!!!!\n // Operator permissions - make sure we don't have unused permissions here\n // !!!!!!!!!!!!!!!!!!!!\n-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts,verbs=get;list;watch;create;update;patch;delete\n-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/status,verbs=get;update;patch\n-// +kubebuilder:rbac:groups=rookout.rookout.com,resources=rookouts/finalizers,verbs=update\n-// +kubebuilder:rbac:groups=\"apps\",resources=deployments,verbs=get;watch;list;patch\n-\n // This Reconcile function handles the following resources:\n // - Rookout\n // - Deployment\n //\n // the common design pattern is that each reconcile should handle only one resource type\n-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {\n-\toperatorConfiguration := rookoutv1alpha1.Rookout{}\n-\terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)\n-\n-\tif err == nil {\n-\t\tOpState.IsReady = true\n-\t\tOpState.RookoutEnvVars = operatorConfiguration.Spec.RookoutEnvVars\n-\t\tOpState.Matchers = operatorConfiguration.Spec.Matchers\n-\t\tlogrus.Info(\"operator configuration updated\")\n-\t\treturn ctrl.Result{}, nil\n-\t}\n-\n-\tif !OpState.IsReady {\n-\t\treturn ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_AFTER}, nil\n-\t}\n \n-\tdeployment := apps.Deployment{}\n-\terr = r.Client.Get(ctx, req.NamespacedName, &deployment)\n-\n-\tif err != nil {\n-\t\tif !strings.Contains(err.Error(), \"not found\") {\n-\t\t\tlogrus.Errorf(\"error during deployment fetch - %s\", err.Error())\n-\t\t}\n-\t\treturn ctrl.Result{}, nil\n-\t}\n-\n-\terr = r.patchDeployment(ctx, &deployment)\n-\n \tif err != nil {\n \t\treturn ctrl.Result{}, err\n \t}\ndiff --git a/api/v1alpha1/rookout_types.go b/api/v1alpha1/rookout_types.go\nindex 08ac52b..08ac52b 100644\n--- a/api/v1alpha1/rookout_types.go\n+++ b/api/v1alpha1/rookout_types.go\n@@ -17,11 +17,6 @@\n }\n \n // RookoutSpec defines the desired state of Rookout\n-type RookoutSpec struct {\n-\tMatchers       []Matcher   `json:\"matchers,omitempty\"`\n-\tRookoutEnvVars []v1.EnvVar `json:\"rookout_env_vars,omitempty\"`\n-}\n-\n // RookoutStatus defines the observed state of Rookout\n type RookoutStatus struct {\n \t// TODO: consider using this objet to represent our operator state\n@@ -32,14 +27,6 @@\n // +kubebuilder:subresource:status\n \n // Rookout is the Schema for the rookouts API\n-type Rookout struct {\n-\tmetav1.TypeMeta   `json:\",inline\"`\n-\tmetav1.ObjectMeta `json:\"metadata,omitempty\"`\n-\n-\tSpec   RookoutSpec   `json:\"spec,omitempty\"`\n-\tStatus RookoutStatus `json:\"status,omitempty\"`\n-}\n-\n // +kubebuilder:object:root=true\n \n // RookoutList contains a list of Rookout\n",
+    "last_commit_sha_for_swimm_patch": "6f7ac98655ffae706ef8658ab680507dccbe19e5"
 }
