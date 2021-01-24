@@ -6,7 +6,8 @@
     "summary": "",
     "hunksOrder": [
         "controllers/rookout_controller.go_0",
-        "api/v1alpha1/rookout_types.go_0"
+        "api/v1alpha1/rookout_types.go_0",
+        "api/v1alpha1/rookout_types.go_1"
     ],
     "tests": [],
     "hints": [],
@@ -42,11 +43,32 @@
                 {
                     "swimmHunkMetadata": {
                         "hunkComments": [
+                            "In this step we define the Spec section of our API"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -17,11 +17,6 @@",
+                        " }",
+                        " ",
+                        " // RookoutSpec defines the desired state of Rookout",
+                        "-type RookoutSpec struct {",
+                        "-\tMatchers       []Matcher   `json:\"matchers,omitempty\"`",
+                        "-\tRookoutEnvVars []v1.EnvVar `json:\"rookout_env_vars,omitempty\"`",
+                        "-}",
+                        "-",
+                        " // RookoutStatus defines the observed state of Rookout",
+                        " type RookoutStatus struct {",
+                        " \t// TODO: consider using this objet to represent our operator state"
+                    ]
+                },
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
                             "In this step we define our operator configuration resource"
                         ]
                     },
                     "hunkDiffLines": [
-                        "@@ -32,14 +32,6 @@",
+                        "@@ -32,14 +27,6 @@",
                         " // +kubebuilder:subresource:status",
                         " ",
                         " // Rookout is the Schema for the rookouts API",
@@ -68,6 +90,6 @@
     },
     "app_version": "0.3.4-0",
     "file_version": "1.0.4",
-    "diff": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go\n@@ -56,7 +56,6 @@\n // - Deployment\n //\n // the common design pattern is that each reconcile should handle only one resource type\n-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {\n \toperatorConfiguration := rookoutv1alpha1.Rookout{}\n \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)\n \ndiff --git a/api/v1alpha1/rookout_types.go b/api/v1alpha1/rookout_types.go\nindex 08ac52b..08ac52b 100644\n--- a/api/v1alpha1/rookout_types.go\n+++ b/api/v1alpha1/rookout_types.go\n@@ -32,14 +32,6 @@\n // +kubebuilder:subresource:status\n \n // Rookout is the Schema for the rookouts API\n-type Rookout struct {\n-\tmetav1.TypeMeta   `json:\",inline\"`\n-\tmetav1.ObjectMeta `json:\"metadata,omitempty\"`\n-\n-\tSpec   RookoutSpec   `json:\"spec,omitempty\"`\n-\tStatus RookoutStatus `json:\"status,omitempty\"`\n-}\n-\n // +kubebuilder:object:root=true\n \n // RookoutList contains a list of Rookout\n",
-    "last_commit_sha_for_swimm_patch": "8a8d94e55c12417ffc8d815715252e7d2422f8fd"
+    "diff": "diff --git a/controllers/rookout_controller.go b/controllers/rookout_controller.go\nindex d085a45..d085a45 100644\n--- a/controllers/rookout_controller.go\n+++ b/controllers/rookout_controller.go\n@@ -56,7 +56,6 @@\n // - Deployment\n //\n // the common design pattern is that each reconcile should handle only one resource type\n-func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {\n \toperatorConfiguration := rookoutv1alpha1.Rookout{}\n \terr := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)\n \ndiff --git a/api/v1alpha1/rookout_types.go b/api/v1alpha1/rookout_types.go\nindex 08ac52b..08ac52b 100644\n--- a/api/v1alpha1/rookout_types.go\n+++ b/api/v1alpha1/rookout_types.go\n@@ -17,11 +17,6 @@\n }\n \n // RookoutSpec defines the desired state of Rookout\n-type RookoutSpec struct {\n-\tMatchers       []Matcher   `json:\"matchers,omitempty\"`\n-\tRookoutEnvVars []v1.EnvVar `json:\"rookout_env_vars,omitempty\"`\n-}\n-\n // RookoutStatus defines the observed state of Rookout\n type RookoutStatus struct {\n \t// TODO: consider using this objet to represent our operator state\n@@ -32,14 +27,6 @@\n // +kubebuilder:subresource:status\n \n // Rookout is the Schema for the rookouts API\n-type Rookout struct {\n-\tmetav1.TypeMeta   `json:\",inline\"`\n-\tmetav1.ObjectMeta `json:\"metadata,omitempty\"`\n-\n-\tSpec   RookoutSpec   `json:\"spec,omitempty\"`\n-\tStatus RookoutStatus `json:\"status,omitempty\"`\n-}\n-\n // +kubebuilder:object:root=true\n \n // RookoutList contains a list of Rookout\n",
+    "last_commit_sha_for_swimm_patch": "d83c3681dc929eeef72e96782a7e005a7c9ab204"
 }
