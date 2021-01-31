@@ -1,0 +1,63 @@
+{
+    "id": "tY5RsqG5amERihbpuwzm",
+    "name": "Makefile overview",
+    "dod": "",
+    "description": "",
+    "summary": "",
+    "hunksOrder": [
+        "Makefile_1",
+        "Makefile_0"
+    ],
+    "tests": [],
+    "hints": [],
+    "play_mode": "walkthrough",
+    "swimmPatch": {
+        "Makefile": {
+            "diffType": "MODIFIED",
+            "fileDiffHeader": "diff --git a/Makefile b/Makefile\nindex 41f6dfa..41f6dfa 100644\n--- a/Makefile\n+++ b/Makefile",
+            "hunks": [
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": []
+                    },
+                    "hunkDiffLines": [
+                        "@@ -132,16 +132,3 @@",
+                        " \tmake deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0",
+                        " \tkubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml",
+                        " ",
+                        "-deployment_yamls:",
+                        "-\tmake deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0",
+                        "-log:",
+                        "-\tkubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f",
+                        "-",
+                        "-build_init_container:",
+                        "-\tdocker build -f InitContainer.Dockerfile . -t us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0",
+                        "-",
+                        "-push_init_container:",
+                        "-\tdocker push us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0",
+                        "-",
+                        "-apply_config:",
+                        "-\tkubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml"
+                    ]
+                },
+                {
+                    "swimmHunkMetadata": {
+                        "hunkComments": [
+                            "create the relevant YAMLS for kubectl"
+                        ]
+                    },
+                    "hunkDiffLines": [
+                        "@@ -135,3 +135,0 @@",
+                        "-deployment_yamls:",
+                        "-\tmake deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0",
+                        "-log:"
+                    ]
+                }
+            ]
+        }
+    },
+    "app_version": "0.3.4-0",
+    "file_version": "1.0.4",
+    "diff": "diff --git a/Makefile b/Makefile\nindex 41f6dfa..41f6dfa 100644\n--- a/Makefile\n+++ b/Makefile\n@@ -132,16 +132,3 @@\n \tmake deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0\n \tkubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml\n \n-deployment_yamls:\n-\tmake deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0\n-log:\n-\tkubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f\n-\n-build_init_container:\n-\tdocker build -f InitContainer.Dockerfile . -t us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0\n-\n-push_init_container:\n-\tdocker push us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0\n-\n-apply_config:\n-\tkubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml\n",
+    "last_commit_sha_for_swimm_patch": "70e4793d7616919c9504d2d66bd6610d437cc67c"
+}

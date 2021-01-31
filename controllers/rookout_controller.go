@@ -108,7 +108,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		}
 	}
 
-	patch := client.MergeFrom(deployment.DeepCopy())
+	originalDeployment := client.MergeFrom(deployment.DeepCopy())
 
 	var updatedContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -163,7 +163,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		},
 	})
 
-	err := r.Client.Patch(ctx, deployment, patch)
+	err := r.Client.Patch(ctx, deployment, originalDeployment)
 	if err != nil {
 		return err
 	}
