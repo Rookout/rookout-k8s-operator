@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // !!!!!!!!!!
@@ -16,10 +17,20 @@ type Matcher struct {
 	EnvVars    []v1.EnvVar       `json:"env_vars,omitempty"`
 }
 
+type InitContainer struct {
+	Image                 string        `json:"image,omitempty"`
+	ImagePullPolicy       v1.PullPolicy `json:"image_pull_policy,omitempty"`
+	ContainerName         string        `json:"container_name,omitempty"`
+	SharedVolumeMountPath string        `json:"shared_volume_mount_path,omitempty"`
+	SharedVolumeName      string        `json:"shared_volume_name,omitempty"`
+}
+
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	Matchers       []Matcher   `json:"matchers,omitempty"`
-	RookoutEnvVars []v1.EnvVar `json:"rookout_env_vars,omitempty"`
+	Matchers       []Matcher     `json:"matchers,omitempty"`
+	RookoutEnvVars []v1.EnvVar   `json:"rookout_env_vars,omitempty"`
+	InitContainer  InitContainer `json:"init_container,omitempty"`
+	RequeueAfter   time.Duration `json:"requeue_after,omitempty"`
 }
 
 // RookoutStatus defines the observed state of Rookout
