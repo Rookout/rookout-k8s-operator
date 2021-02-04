@@ -27,20 +27,20 @@ type RookoutReconciler struct {
 
 type OperatorConfiguration struct {
 	rookoutv1alpha1.Rookout
-	IsReady bool
+	isReady bool
 }
 
-var Configuration = OperatorConfiguration{IsReady: false}
+var configuration = OperatorConfiguration{isReady: false}
 
 const (
-	DEFAULT_REQUEUE_AFTER                    = 10 * time.Second
-	DEFAULT_INIT_CONTAINER_NAME              = "agent-init-container"
-	DEFAULT_INIT_CONTAINER_IMAGE             = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
-	DEFAULT_INIT_CONTAINER_IMAGE_PULL_POLICY = v1.PullAlways
-	DEFAULT_SHARED_VOLUEME_NAME              = "rookout-agent-shared-volume"
-	DEFAULT_SHARED_VOLUEME_MOUNT_PATH        = "/rookout"
-	ROOKOUT_ENV_VAR_PREFFIX                  = "ROOKOUT_"
-	ROOKOUT_TOKEN_ENV_VAR                    = "ROOKOUT_TOKEN"
+	DefaultRequeueAfter                 = 10 * time.Second
+	DefaultInitContainerName            = "agent-init-container"
+	DefaultInitContainerImage           = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
+	DefaultInitContainerImagePullPolicy = v1.PullAlways
+	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
+	DefaultSharedVolumeMountPath        = "/rookout"
+	RookoutEnvVarPreffix                = "ROOKOUT_"
+	RookoutTokenEnvVar                  = "ROOKOUT_TOKEN"
 )
 
 // !!!!!!!!!!!!!!!!!!!!
@@ -54,7 +54,7 @@ const (
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	switch getResourceType(req) {
-	case OPERATOR_CONFIGURATUION_RESOURCE:
+	case OperatorConfigurationResource:
 		{
 			operatorConfiguration := rookoutv1alpha1.Rookout{}
 			err := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)
@@ -65,17 +65,17 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			r.updateOperatorConfiguration(operatorConfiguration)
 		}
 
-	case DEPLOYMENT_RESOURCE:
+	case DeploymentResource:
 		{
-			if !r.isReady() {
-				return ctrl.Result{Requeue: true, RequeueAfter: Configuration.Spec.RequeueAfter}, nil
+			if !configuration.isReady {
+				return ctrl.Result{Requeue: true, RequeueAfter: configuration.Spec.RequeueAfter}, nil
 			}
 
 			deployment := apps.Deployment{}
 			err := r.Client.Get(ctx, req.NamespacedName, &deployment)
 			if err != nil {
 				if !strings.Contains(err.Error(), "not found") {
-					logrus.Errorf("deployment not found - %s. maybe already deleted.", req.NamespacedName)
+					logrus.Errorf("Deployment not found, maybe already deleted. deployment: %s", req.NamespacedName)
 				}
 				return ctrl.Result{}, nil
 			}
@@ -85,9 +85,6 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-
-	default:
-		logrus.Errorf("unknown request: %s", req.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -101,52 +98,48 @@ func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.Rookout) {
-	Configuration.IsReady = false
-	Configuration.Spec.RookoutEnvVars = config.Spec.RookoutEnvVars
-	Configuration.Spec.Matchers = config.Spec.Matchers
-	Configuration.Spec.InitContainer.Image = getConfigStr(config.Spec.InitContainer.Image, DEFAULT_INIT_CONTAINER_IMAGE)
-	Configuration.Spec.InitContainer.ImagePullPolicy = v1.PullPolicy(getConfigStr(string(config.Spec.InitContainer.ImagePullPolicy), string(DEFAULT_INIT_CONTAINER_IMAGE_PULL_POLICY)))
-	Configuration.Spec.InitContainer.ContainerName = getConfigStr(config.Spec.InitContainer.ContainerName, DEFAULT_INIT_CONTAINER_NAME)
-	Configuration.Spec.InitContainer.SharedVolumeMountPath = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DEFAULT_SHARED_VOLUEME_MOUNT_PATH)
-	Configuration.Spec.InitContainer.SharedVolumeName = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DEFAULT_SHARED_VOLUEME_NAME)
+	configuration.isReady = false
+	configuration.Spec.RookoutEnvVars = config.Spec.RookoutEnvVars
+	configuration.Spec.Matchers = config.Spec.Matchers
+	configuration.Spec.InitContainer.Image = getConfigStr(config.Spec.InitContainer.Image, DefaultInitContainerImage)
+	configuration.Spec.InitContainer.ImagePullPolicy = v1.PullPolicy(getConfigStr(string(config.Spec.InitContainer.ImagePullPolicy), string(DefaultInitContainerImagePullPolicy)))
+	configuration.Spec.InitContainer.ContainerName = getConfigStr(config.Spec.InitContainer.ContainerName, DefaultInitContainerName)
+	configuration.Spec.InitContainer.SharedVolumeMountPath = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DefaultSharedVolumeMountPath)
+	configuration.Spec.InitContainer.SharedVolumeName = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DefaultSharedVolumeName)
 
 	if config.Spec.RequeueAfter > 0 {
-		Configuration.Spec.RequeueAfter = config.Spec.RequeueAfter
+		configuration.Spec.RequeueAfter = config.Spec.RequeueAfter
 	} else {
-		Configuration.Spec.RequeueAfter = DEFAULT_REQUEUE_AFTER
+		configuration.Spec.RequeueAfter = DefaultRequeueAfter
 	}
 
 	rookoutTokenFound := false
-	for _, envVar := range Configuration.Spec.RookoutEnvVars {
-		if envVar.Name == ROOKOUT_TOKEN_ENV_VAR {
+	for _, envVar := range configuration.Spec.RookoutEnvVars {
+		if envVar.Name == RookoutTokenEnvVar {
 			rookoutTokenFound = true
 			break
 		}
 	}
 
 	if !rookoutTokenFound {
-		logrus.Info("rookout token env var not found in configuration")
+		logrus.Error("Rookout token env var not found in configuration")
 		return
 	}
 
-	if len(Configuration.Spec.Matchers) == 0 {
-		logrus.Info("no matchers found in configuration")
+	if len(configuration.Spec.Matchers) == 0 {
+		logrus.Error("Mo matchers found in configuration")
 		return
 	}
 
-	Configuration.IsReady = true
-	logrus.Info("operator configuration updated")
-}
-
-func (r *RookoutReconciler) isReady() bool {
-	return Configuration.IsReady
+	configuration.isReady = true
+	logrus.Info("Operator configuration updated")
 }
 
 func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *apps.Deployment) error {
 	shouldPatch := false
 
 	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
-		if initContainer.Name == Configuration.Spec.InitContainer.ContainerName {
+		if initContainer.Name == configuration.Spec.InitContainer.ContainerName {
 			return nil
 		}
 	}
@@ -157,9 +150,9 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
 		containerMatched := false
-		for _, matcher := range Configuration.Spec.Matchers {
+		for _, matcher := range configuration.Spec.Matchers {
 			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && labelsMatch(matcher, *deployment) {
-				setRookoutEnvVars(&container.Env, Configuration.Spec.RookoutEnvVars)
+				setRookoutEnvVars(&container.Env, configuration.Spec.RookoutEnvVars)
 				setRookoutEnvVars(&container.Env, matcher.EnvVars)
 				containerMatched = true
 				break
@@ -170,16 +163,16 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 			continue
 		}
 
-		logrus.Infof("adding rookout agent to container %s of deployment %s", container.Name, deployment.Name)
+		logrus.Infof("Adding rookout agent to container %s of deployment %s", container.Name, deployment.Name)
 
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
-			Value: fmt.Sprintf("-javaagent:%s/rook.jar", Configuration.Spec.InitContainer.SharedVolumeMountPath),
+			Value: fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath),
 		})
 
 		container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
-			Name:      Configuration.Spec.InitContainer.SharedVolumeName,
-			MountPath: Configuration.Spec.InitContainer.SharedVolumeMountPath,
+			Name:      configuration.Spec.InitContainer.SharedVolumeName,
+			MountPath: configuration.Spec.InitContainer.SharedVolumeMountPath,
 		})
 
 		updatedContainers = append(updatedContainers, container)
@@ -193,18 +186,18 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	deployment.Spec.Template.Spec.Containers = updatedContainers
 
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, v1.Volume{
-		Name:         Configuration.Spec.InitContainer.SharedVolumeName,
+		Name:         configuration.Spec.InitContainer.SharedVolumeName,
 		VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
 	})
 
 	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, v1.Container{
-		Image:           Configuration.Spec.InitContainer.Image,
-		ImagePullPolicy: Configuration.Spec.InitContainer.ImagePullPolicy,
-		Name:            Configuration.Spec.InitContainer.ContainerName,
+		Image:           configuration.Spec.InitContainer.Image,
+		ImagePullPolicy: configuration.Spec.InitContainer.ImagePullPolicy,
+		Name:            configuration.Spec.InitContainer.ContainerName,
 		VolumeMounts: []v1.VolumeMount{
 			{
-				Name:      Configuration.Spec.InitContainer.SharedVolumeName,
-				MountPath: Configuration.Spec.InitContainer.SharedVolumeMountPath},
+				Name:      configuration.Spec.InitContainer.SharedVolumeName,
+				MountPath: configuration.Spec.InitContainer.SharedVolumeMountPath},
 		},
 	})
 
@@ -213,6 +206,6 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		return err
 	}
 
-	logrus.Infof("deployment %s patched successfully", deployment.Name)
+	logrus.Infof("Deployment %s patched successfully", deployment.Name)
 	return nil
 }

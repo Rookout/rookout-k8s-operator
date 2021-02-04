@@ -11,8 +11,8 @@ import (
 
 func setRookoutEnvVars(env *[]v1.EnvVar, evnVars []v1.EnvVar) {
 	for _, envVar := range evnVars {
-		if !strings.HasPrefix(envVar.Name, ROOKOUT_ENV_VAR_PREFFIX) {
-			logrus.Warnf("%s is not a valid env variable. Only vars with %s prefix allowed.", envVar.Name, ROOKOUT_ENV_VAR_PREFFIX)
+		if !strings.HasPrefix(envVar.Name, RookoutEnvVarPreffix) {
+			logrus.Warnf("%s is not a valid env variable. Only vars with %s prefix allowed.", envVar.Name, RookoutEnvVarPreffix)
 			continue
 		}
 
@@ -48,17 +48,17 @@ func containerMatch(matcher v1alpha1.Matcher, container v1.Container) bool {
 }
 
 const (
-	OPERATOR_CONFIGURATUION_RESOURCE = "Rookout"
-	DEPLOYMENT_RESOURCE              = "Deployment"
+	OperatorConfigurationResource = "Rookout"
+	DeploymentResource            = "Deployment"
 )
 
 func getResourceType(req ctrl.Request) string {
-	if strings.HasPrefix(req.Name, OPERATOR_CONFIGURATUION_RESOURCE) {
-		return OPERATOR_CONFIGURATUION_RESOURCE
+	if strings.HasPrefix(req.Name, OperatorConfigurationResource) {
+		return OperatorConfigurationResource
 	}
 
-	if strings.HasPrefix(req.Name, DEPLOYMENT_RESOURCE) {
-		return DEPLOYMENT_RESOURCE
+	if strings.HasPrefix(req.Name, DeploymentResource) {
+		return DeploymentResource
 	}
 
 	return req.Name
