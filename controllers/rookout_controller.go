@@ -127,7 +127,7 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 	}
 
 	if len(configuration.Spec.Matchers) == 0 {
-		logrus.Error("Mo matchers found in configuration")
+		logrus.Error("No matchers found in configuration")
 		return
 	}
 
