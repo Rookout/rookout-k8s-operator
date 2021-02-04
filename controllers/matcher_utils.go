@@ -48,17 +48,17 @@ func containerMatch(matcher v1alpha1.Matcher, container v1.Container) bool {
 }
 
 const (
-	OPERATOR_CONFIGURATUION_REQUEST = "Rookout"
-	DEPLOYMENT_REQUEST              = "Deployment"
+	OPERATOR_CONFIGURATUION_RESOURCE = "Rookout"
+	DEPLOYMENT_RESOURCE              = "Deployment"
 )
 
 func getResourceType(req ctrl.Request) string {
-	if strings.HasPrefix(req.Name, OPERATOR_CONFIGURATUION_REQUEST) {
-		return OPERATOR_CONFIGURATUION_REQUEST
+	if strings.HasPrefix(req.Name, OPERATOR_CONFIGURATUION_RESOURCE) {
+		return OPERATOR_CONFIGURATUION_RESOURCE
 	}
 
-	if strings.HasPrefix(req.Name, DEPLOYMENT_REQUEST) {
-		return DEPLOYMENT_REQUEST
+	if strings.HasPrefix(req.Name, DEPLOYMENT_RESOURCE) {
+		return DEPLOYMENT_RESOURCE
 	}
 
 	return req.Name

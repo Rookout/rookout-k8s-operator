@@ -54,7 +54,7 @@ const (
 func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	switch getResourceType(req) {
-	case OPERATOR_CONFIGURATUION_REQUEST:
+	case OPERATOR_CONFIGURATUION_RESOURCE:
 		{
 			operatorConfiguration := rookoutv1alpha1.Rookout{}
 			err := r.Client.Get(ctx, req.NamespacedName, &operatorConfiguration)
@@ -65,7 +65,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			r.updateOperatorConfiguration(operatorConfiguration)
 		}
 
-	case DEPLOYMENT_REQUEST:
+	case DEPLOYMENT_RESOURCE:
 		{
 			if !r.isReady() {
 				return ctrl.Result{Requeue: true, RequeueAfter: Configuration.Spec.RequeueAfter}, nil
