@@ -50,18 +50,15 @@ func containerMatch(matcher v1alpha1.Matcher, container v1.Container) bool {
 const (
 	OperatorConfigurationResource = "Rookout"
 	DeploymentResource            = "Deployment"
+	ConfigurationResourceName     = "rookout-operator-configuration"
 )
 
 func getResourceType(req ctrl.Request) string {
-	if strings.HasPrefix(req.Name, OperatorConfigurationResource) {
+	if req.Name == ConfigurationResourceName {
 		return OperatorConfigurationResource
 	}
 
-	if strings.HasPrefix(req.Name, DeploymentResource) {
-		return DeploymentResource
-	}
-
-	return req.Name
+	return DeploymentResource
 }
 
 func getConfigStr(config string, defaultValue string) string {
