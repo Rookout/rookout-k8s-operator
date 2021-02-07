@@ -36,6 +36,21 @@ spec:
           spec:
             description: RookoutSpec defines the desired state of Rookout
             properties:
+              init_container:
+                properties:
+                  container_name:
+                    type: string
+                  image:
+                    type: string
+                  image_pull_policy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  shared_volume_mount_path:
+                    type: string
+                  shared_volume_name:
+                    type: string
+                type: object
               matchers:
                 items:
                   properties:
@@ -160,6 +175,12 @@ spec:
                       type: object
                   type: object
                 type: array
+              requeue_after:
+                description: A Duration represents the elapsed time between two instants
+                  as an int64 nanosecond count. The representation limits the largest
+                  representable duration to approximately 290 years.
+                format: int64
+                type: integer
               rookout_env_vars:
                 items:
                   description: EnvVar represents an environment variable present in
