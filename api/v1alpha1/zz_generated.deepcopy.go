@@ -138,13 +138,6 @@ func (in *RookoutSpec) DeepCopyInto(out *RookoutSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.RookoutEnvVars != nil {
-		in, out := &in.RookoutEnvVars, &out.RookoutEnvVars
-		*out = make([]v1.EnvVar, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
 	out.InitContainer = in.InitContainer
 }
 
