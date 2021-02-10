@@ -1,5 +1,4 @@
-Download the sdk from link
+# First steps
 
-init new project
+- Read the official operator SDK tutorial [here](https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/)
 
-more references

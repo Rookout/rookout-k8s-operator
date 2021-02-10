@@ -1,11 +1,10 @@
 apiVersion: rookout.rookout.com/v1alpha1
 kind: Rookout
 metadata:
-  name: rookout-sample
+  name: rookout-operator-configuration
 spec:
-  rookout_env_vars:
-    - name: "ROOKOUT_TOKEN"
-      value: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
-
   matchers:
     - deployment : "java-test"
+      env_vars:
+        - name: "ROOKOUT_TOKEN"
+          value: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"
