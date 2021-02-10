@@ -27,10 +27,9 @@ type InitContainer struct {
 
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	Matchers       []Matcher     `json:"matchers,omitempty"`
-	RookoutEnvVars []v1.EnvVar   `json:"rookout_env_vars,omitempty"`
-	InitContainer  InitContainer `json:"init_container,omitempty"`
-	RequeueAfter   time.Duration `json:"requeue_after,omitempty"`
+	Matchers      []Matcher     `json:"matchers,omitempty"`
+	InitContainer InitContainer `json:"init_container,omitempty"`
+	RequeueAfter  time.Duration `json:"requeue_after,omitempty"`
 }
 
 // RookoutStatus defines the observed state of Rookout
