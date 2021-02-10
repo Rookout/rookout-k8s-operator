@@ -99,7 +99,6 @@ func (r *RookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.Rookout) {
 	configuration.isReady = false
-	configuration.Spec.RookoutEnvVars = config.Spec.RookoutEnvVars
 	configuration.Spec.Matchers = config.Spec.Matchers
 	configuration.Spec.InitContainer.Image = getConfigStr(config.Spec.InitContainer.Image, DefaultInitContainerImage)
 	configuration.Spec.InitContainer.ImagePullPolicy = v1.PullPolicy(getConfigStr(string(config.Spec.InitContainer.ImagePullPolicy), string(DefaultInitContainerImagePullPolicy)))
@@ -155,7 +154,6 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		containerMatched := false
 		for _, matcher := range configuration.Spec.Matchers {
 			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && labelsMatch(matcher, *deployment) {
-				setRookoutEnvVars(&container.Env, configuration.Spec.RookoutEnvVars)
 				setRookoutEnvVars(&container.Env, matcher.EnvVars)
 				containerMatched = true
 				break
