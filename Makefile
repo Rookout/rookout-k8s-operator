@@ -145,3 +145,21 @@ push_init_container:
 
 apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
+
+publish-operator:
+	## Publishing operator & init container images
+
+	# Pulling image from rookout's bucket
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+
+	# Tagging image with dockerhub name and right version
+	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} -t rookout/k8s-operator:${VERSION_TO_PUBLISH} -t rookout/k8s-operator:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} -t rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH} -t rookout/k8s-operator-init-container:latest
+
+	# Logging into dockerhub and pushing
+	docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
+	docker push rookout/k8s-operator:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator:latest
+	docker push rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-init-container:latest
