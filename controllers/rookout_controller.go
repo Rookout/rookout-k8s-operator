@@ -117,6 +117,22 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 		return
 	}
 
+	for _, matcher := range configuration.Spec.Matchers {
+		rookoutTokenFound := false
+
+		for _, envVar := range matcher.EnvVars {
+			if envVar.Name == RookoutTokenEnvVar {
+				rookoutTokenFound = true
+				break
+			}
+		}
+
+		if !rookoutTokenFound {
+			logrus.Error("Rookout token env var not found in all matchers")
+			return
+		}
+	}
+
 	configuration.isReady = true
 	logrus.Info("Operator configuration updated")
 }
