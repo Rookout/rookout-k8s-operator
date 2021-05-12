@@ -41,6 +41,7 @@ const (
 	DefaultSharedVolumeMountPath        = "/rookout"
 	RookoutEnvVarPreffix                = "ROOKOUT_"
 	RookoutTokenEnvVar                  = "ROOKOUT_TOKEN"
+	RookoutControllerHostEnvVar         = "ROOKOUT_CONTROLLER_HOST"
 )
 
 // !!!!!!!!!!!!!!!!!!!!
@@ -119,16 +120,24 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 
 	for _, matcher := range configuration.Spec.Matchers {
 		rookoutTokenFound := false
+		onPremControllerFound := false
 
 		for _, envVar := range matcher.EnvVars {
 			if envVar.Name == RookoutTokenEnvVar {
 				rookoutTokenFound = true
+			}
+
+			if envVar.Name == RookoutControllerHostEnvVar {
+				onPremControllerFound = true
+			}
+
+			if onPremControllerFound && rookoutTokenFound {
 				break
 			}
 		}
 
-		if !rookoutTokenFound {
-			logrus.Error("Rookout token env var not found in all matchers")
+		if !rookoutTokenFound && !onPremControllerFound {
+			logrus.Errorf("%s env var required for SaaS deployment", RookoutTokenEnvVar)
 			return
 		}
 	}
