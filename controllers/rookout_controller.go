@@ -137,7 +137,7 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 		}
 
 		if !rookoutTokenFound && !onPremControllerFound {
-			logrus.Errorf("%s env var required for SaaS deployment", RookoutTokenEnvVar)
+			logrus.Infof("Are you trying to connect to a deployed Rookout controller? if so, use %s and if you don't, use %s. See our docs at docs.rookout.com\"t", RookoutControllerHostEnvVar, RookoutTokenEnvVar)
 			return
 		}
 	}
