@@ -64,5 +64,3 @@ time="2021-01-20T17:49:27Z" level=info msg="deployment <DEPLOYMENT> patched succ
 - Inspired by [this](https://banzaicloud.com/blog/operator-sdk/) blog post
 - Inspired by [prometheus-jmx-exporter-operator](https://github.com/banzaicloud/prometheus-jmx-exporter-operator)
 - Controller [watches](https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches.html) - we use them to get notified on pods events
-
-

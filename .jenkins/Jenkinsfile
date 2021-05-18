@@ -1,0 +1,4 @@
+basicPipeline {
+    PROFILE = "DockerOnly"
+    AUTH_DOCKER_BEFORE_DOCKER = "true" // us.gcr.io/rookout is used in Dockerfile and require auth
+}
