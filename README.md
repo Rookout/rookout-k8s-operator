@@ -34,25 +34,26 @@ kubectl delete -f ./config/samples/rookout_v1alpha1_rookout.yaml
 time="2021-01-20T17:49:10Z" level=info msg="operator configuration updated"
 ```
 
-
 ### How a successful deployment patch looks in the logs ? 
 ```
 time="2021-01-20T17:49:27Z" level=info msg="adding rookout agent to container <CONTAINER> of deployment <DEPLOYMENT>"
 time="2021-01-20T17:49:27Z" level=info msg="deployment <DEPLOYMENT> patched successfully"
 ```
 
-
+# Development
 ## Code structure
 - Project's initial structure created by `operator-sdk init`
 - Operator's entry point : [/controllers/rookout_controller.go](./controllers/rookout_controller.go)
 - Operator Resource API : [/api/v1alpha1/rookout_types.go](./api/v1alpha1/rookout_types.go)
 
-## Repo local setup - should be done only once after repo checkout
+## Repo local setup
 - Install operator sdk:  `brew install operator-sdk`
 - Init repo: `make all`
 
-## Build
-`make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0`
+## How to run and test on a cluster
+- Move to a dev cluster
+- Run make build-and-deploy
+- It should create an operator on rookout namespace
 
 ## Known issues
 - Can't inject to PID=1 on linux alpine with openjdk < 14

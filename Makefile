@@ -127,7 +127,7 @@ bundle-build:
 
 build-and-deploy:
 	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
-	kubectl delete deployment.apps/rookout-controller-manager -n rookout
+	kubectl delete deployment.apps/rookout-controller-manager -n rookout #Comment this out if this is the first time running on the cluster
 	make install
 	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
 	kubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml
