@@ -156,8 +156,8 @@ publish-operator:
 	# Tagging image with dockerhub name and right version
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:${VERSION_TO_PUBLISH}
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:latest
-	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
-	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0 rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0 rookout/k8s-operator-init-container:latest
 
 	# Logging into dockerhub and pushing
 	docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
