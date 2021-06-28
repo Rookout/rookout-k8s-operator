@@ -151,7 +151,7 @@ publish-operator:
 
 	# Pulling image from rookout's bucket
 	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION}
-	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0
 
 	# Tagging image with dockerhub name and right version
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:${VERSION_TO_PUBLISH}
