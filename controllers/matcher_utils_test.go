@@ -1,11 +1,12 @@
 package controllers
 
 import (
+	"testing"
+
 	rookout "github.com/rookout/rookout-k8s-operator/api/v1alpha1"
 	"github.com/stretchr/testify/require"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"testing"
 )
 
 func TestMatcher(t *testing.T) {
@@ -19,25 +20,30 @@ func TestMatcher(t *testing.T) {
 			Name: "right-container",
 		},
 	}
+	deployment.Namespace = "right-namespace"
 
 	rightMatcher := rookout.Matcher{
 		Deployment: "right-deployment",
 		Container:  "right-container",
 		Labels:     map[string]string{"app": "right_app"},
+		Namespace:  "right-namespace",
 	}
 	wrongMatcher := rookout.Matcher{
 		Deployment: "wrong-deployment",
 		Container:  "wrong-container",
 		Labels:     map[string]string{"app": "wrong_app"},
+		Namespace:  "wrong-namespace",
 	}
 
 	assert.True(deploymentMatch(rightMatcher, deployment))
 	assert.True(containerMatch(rightMatcher, deployment.Spec.Template.Spec.Containers[0]))
 	assert.True(labelsMatch(rightMatcher, deployment))
+	assert.True(namespaceMatch(rightMatcher, deployment))
 
 	assert.False(deploymentMatch(wrongMatcher, deployment))
 	assert.False(containerMatch(wrongMatcher, deployment.Spec.Template.Spec.Containers[0]))
 	assert.False(labelsMatch(wrongMatcher, deployment))
+	assert.False(namespaceMatch(wrongMatcher, deployment))
 
 }
 

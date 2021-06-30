@@ -54,6 +54,8 @@ spec:
               matchers:
                 items:
                   properties:
+                    namespace:
+                      type: string
                     container:
                       type: string
                     deployment:

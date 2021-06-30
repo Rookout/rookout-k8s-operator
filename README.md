@@ -36,7 +36,7 @@ time="2021-01-20T17:49:10Z" level=info msg="operator configuration updated"
 
 ### How a successful deployment patch looks in the logs ? 
 ```
-time="2021-01-20T17:49:27Z" level=info msg="adding rookout agent to container <CONTAINER> of deployment <DEPLOYMENT>"
+time="2021-01-20T17:49:27Z" level=info msg="adding rookout agent to container <CONTAINER> of deployment <DEPLOYMENT> in <NAMESPACE> namespace"
 time="2021-01-20T17:49:27Z" level=info msg="deployment <DEPLOYMENT> patched successfully"
 ```
 
