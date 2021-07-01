@@ -36,7 +36,7 @@ var configuration = OperatorConfiguration{isReady: false}
 const (
 	DefaultRequeueAfter                 = 10 * time.Second
 	DefaultInitContainerName            = "agent-init-container"
-	DefaultInitContainerImage           = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
+	DefaultInitContainerImage           = "docker.io/rookout/k8s-operator-init-container:latest"
 	DefaultInitContainerImagePullPolicy = v1.PullAlways
 	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
 	DefaultSharedVolumeMountPath        = "/rookout"
@@ -161,6 +161,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	var updatedContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
+		logrus.Infof("Validating container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 		containerMatched := false
 		for _, matcher := range configuration.Spec.Matchers {
 			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && namespaceMatch(matcher, *deployment) && labelsMatch(matcher, *deployment) {
