@@ -179,7 +179,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
-			Value: fmt.Sprintf("-javaagent:%s/rook.jar %s", configuration.Spec.InitContainer.SharedVolumeMountPath, getJavaToolOptions((container.Env))),
+			Value: fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath),
 		})
 
 		container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
