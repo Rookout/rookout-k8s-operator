@@ -73,3 +73,12 @@ func getConfigStr(config string, defaultValue string) string {
 
 	return defaultValue
 }
+
+func getJavaToolOptions(envVars []v1.EnvVar) string {
+	for _, envVar := range envVars {
+		if envVar.Name == "JAVA_TOOL_OPTIONS" {
+			return envVar.Value
+		}
+	}
+	return ""
+}

@@ -173,6 +173,8 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    namespace:
+                      type: string
                   type: object
                 type: array
               requeue_after:
