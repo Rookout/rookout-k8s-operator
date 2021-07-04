@@ -3,13 +3,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,7 +36,7 @@ var configuration = OperatorConfiguration{isReady: false}
 const (
 	DefaultRequeueAfter                 = 10 * time.Second
 	DefaultInitContainerName            = "agent-init-container"
-	DefaultInitContainerImage           = "us.gcr.io/rookout/rookout-k8s-operator-init-container:1.0"
+	DefaultInitContainerImage           = "docker.io/rookout/k8s-operator-init-container:latest"
 	DefaultInitContainerImagePullPolicy = v1.PullAlways
 	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
 	DefaultSharedVolumeMountPath        = "/rookout"
@@ -160,9 +161,10 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	var updatedContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
+		logrus.Infof("Validating container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 		containerMatched := false
 		for _, matcher := range configuration.Spec.Matchers {
-			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && labelsMatch(matcher, *deployment) {
+			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && namespaceMatch(matcher, *deployment) && labelsMatch(matcher, *deployment) {
 				setRookoutEnvVars(&container.Env, matcher.EnvVars)
 				containerMatched = true
 				break
@@ -173,7 +175,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 			continue
 		}
 
-		logrus.Infof("Adding rookout agent to container %s of deployment %s", container.Name, deployment.Name)
+		logrus.Infof("Adding rookout agent to container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 
 		container.Env = append(container.Env, v1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",

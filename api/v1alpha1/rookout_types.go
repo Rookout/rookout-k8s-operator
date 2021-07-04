@@ -1,9 +1,10 @@
 package v1alpha1
 
 import (
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // !!!!!!!!!!
@@ -15,6 +16,7 @@ type Matcher struct {
 	Deployment string            `json:"deployment,omitempty"`
 	Labels     map[string]string `json:"labels,omitempty"`
 	EnvVars    []v1.EnvVar       `json:"env_vars,omitempty"`
+	Namespace  string            `json:"namespace,omitempty"`
 }
 
 type InitContainer struct {
