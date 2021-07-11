@@ -22,8 +22,9 @@ import (
 
 type RookoutReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	patchedDeployments []apps.Deployment
 }
 
 type OperatorConfiguration struct {
@@ -65,6 +66,9 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			r.updateOperatorConfiguration(operatorConfiguration)
+			for _, v := range r.patchedDeployments {
+				logrus.Infof("Currently patched deployment %v", v.Name)
+			}
 		}
 
 	case DeploymentResource:
@@ -218,6 +222,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		return err
 	}
 
+	r.patchedDeployments = append(r.patchedDeployments, *deployment)
 	logrus.Infof("Deployment %s patched successfully", deployment.Name)
 	return nil
 }
