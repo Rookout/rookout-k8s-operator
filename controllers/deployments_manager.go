@@ -34,5 +34,7 @@ func (d *DeploymentsManager) addPatchedDeployment(deployment apps.Deployment) {
 }
 
 func (d *DeploymentsManager) isDeploymentPatched(deployment apps.Deployment) bool {
-	return d.Deployments[deployment.UID].isPatched
+	mappedDeployment, exist := d.Deployments[deployment.UID]
+
+	return exist && mappedDeployment.isPatched
 }

@@ -151,6 +151,10 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 }
 
 func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *apps.Deployment) error {
+	if r.DeploymentsManager.isDeploymentPatched(*deployment) {
+		return nil
+	}
+
 	shouldPatch := false
 
 	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
@@ -178,12 +182,9 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 			continue
 		}
 
-		logrus.Infof("Adding rookout agent to container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
+		//logrus.Infof("Adding rookout agent to container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 
-		container.Env = append(container.Env, core.EnvVar{
-			Name:  "JAVA_TOOL_OPTIONS",
-			Value: fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath),
-		})
+		container.Env = r.updateContainerEnvVars(container)
 
 		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
 			Name:      configuration.Spec.InitContainer.SharedVolumeName,
@@ -225,6 +226,31 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	r.DeploymentsManager.addPatchedDeployment(*deployment)
 	logrus.Infof("Deployment %s patched successfully", deployment.Name)
 	return nil
+}
+
+func (r *RookoutReconciler) updateContainerEnvVars(container core.Container) []core.EnvVar {
+	newEnvVars := container.Env
+	JavaAgent := fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath)
+
+	javaToolOptionsEnvVarIndex := -1
+
+	for index, envVar := range container.Env {
+		if envVar.Name == "JAVA_TOOL_OPTIONS" {
+			javaToolOptionsEnvVarIndex = index
+			break
+		}
+	}
+
+	if javaToolOptionsEnvVarIndex == -1 {
+		newEnvVars = append(newEnvVars, core.EnvVar{
+			Name:  "JAVA_TOOL_OPTIONS",
+			Value: JavaAgent,
+		})
+	} else {
+		newEnvVars[javaToolOptionsEnvVarIndex].Value = newEnvVars[javaToolOptionsEnvVarIndex].Value + " " + JavaAgent
+	}
+
+	return newEnvVars
 }
 
 func (r *RookoutReconciler) patchDeployments(ctx context.Context) {
