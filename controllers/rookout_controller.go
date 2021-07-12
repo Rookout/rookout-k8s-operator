@@ -8,7 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	core "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -20,11 +20,24 @@ import (
 	rookoutv1alpha1 "github.com/rookout/rookout-k8s-operator/api/v1alpha1"
 )
 
+const (
+	DefaultRequeueAfter                 = 10 * time.Second
+	DefaultInitContainerName            = "agent-init-container"
+	DefaultInitContainerImage           = "docker.io/rookout/k8s-operator-init-container:latest"
+	DefaultInitContainerImagePullPolicy = core.PullAlways
+	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
+	DefaultSharedVolumeMountPath        = "/rookout"
+	RookoutEnvVarPreffix                = "ROOKOUT_"
+	RookoutTokenEnvVar                  = "ROOKOUT_TOKEN"
+	RookoutControllerHostEnvVar         = "ROOKOUT_CONTROLLER_HOST"
+)
+
 type RookoutReconciler struct {
 	client.Client
-	Log                logr.Logger
-	Scheme             *runtime.Scheme
-	patchedDeployments []apps.Deployment
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+
+	DeploymentsManager DeploymentsManager
 }
 
 type OperatorConfiguration struct {
@@ -33,18 +46,6 @@ type OperatorConfiguration struct {
 }
 
 var configuration = OperatorConfiguration{isReady: false}
-
-const (
-	DefaultRequeueAfter                 = 10 * time.Second
-	DefaultInitContainerName            = "agent-init-container"
-	DefaultInitContainerImage           = "docker.io/rookout/k8s-operator-init-container:latest"
-	DefaultInitContainerImagePullPolicy = v1.PullAlways
-	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
-	DefaultSharedVolumeMountPath        = "/rookout"
-	RookoutEnvVarPreffix                = "ROOKOUT_"
-	RookoutTokenEnvVar                  = "ROOKOUT_TOKEN"
-	RookoutControllerHostEnvVar         = "ROOKOUT_CONTROLLER_HOST"
-)
 
 // !!!!!!!!!!!!!!!!!!!!
 // Operator permissions - make sure we don't have unused permissions here
@@ -66,9 +67,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			r.updateOperatorConfiguration(operatorConfiguration)
-			for _, v := range r.patchedDeployments {
-				logrus.Infof("Currently patched deployment %v", v.Name)
-			}
+			r.patchDeployments(ctx)
 		}
 
 	case DeploymentResource:
@@ -107,7 +106,7 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 	configuration.isReady = false
 	configuration.Spec.Matchers = config.Spec.Matchers
 	configuration.Spec.InitContainer.Image = getConfigStr(config.Spec.InitContainer.Image, DefaultInitContainerImage)
-	configuration.Spec.InitContainer.ImagePullPolicy = v1.PullPolicy(getConfigStr(string(config.Spec.InitContainer.ImagePullPolicy), string(DefaultInitContainerImagePullPolicy)))
+	configuration.Spec.InitContainer.ImagePullPolicy = core.PullPolicy(getConfigStr(string(config.Spec.InitContainer.ImagePullPolicy), string(DefaultInitContainerImagePullPolicy)))
 	configuration.Spec.InitContainer.ContainerName = getConfigStr(config.Spec.InitContainer.ContainerName, DefaultInitContainerName)
 	configuration.Spec.InitContainer.SharedVolumeMountPath = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DefaultSharedVolumeMountPath)
 	configuration.Spec.InitContainer.SharedVolumeName = getConfigStr(config.Spec.InitContainer.SharedVolumeMountPath, DefaultSharedVolumeName)
@@ -162,7 +161,7 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 
 	originalDeployment := client.MergeFrom(deployment.DeepCopy())
 
-	var updatedContainers []v1.Container
+	var updatedContainers []core.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 
 		logrus.Infof("Validating container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
@@ -181,12 +180,12 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 
 		logrus.Infof("Adding rookout agent to container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 
-		container.Env = append(container.Env, v1.EnvVar{
+		container.Env = append(container.Env, core.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
 			Value: fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath),
 		})
 
-		container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
+		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
 			Name:      configuration.Spec.InitContainer.SharedVolumeName,
 			MountPath: configuration.Spec.InitContainer.SharedVolumeMountPath,
 		})
@@ -196,21 +195,22 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 	}
 
 	if !shouldPatch {
+		r.DeploymentsManager.addNonPatchedDeployment(*deployment)
 		return nil
 	}
 
 	deployment.Spec.Template.Spec.Containers = updatedContainers
 
-	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, v1.Volume{
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, core.Volume{
 		Name:         configuration.Spec.InitContainer.SharedVolumeName,
-		VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{}},
 	})
 
-	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, v1.Container{
+	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, core.Container{
 		Image:           configuration.Spec.InitContainer.Image,
 		ImagePullPolicy: configuration.Spec.InitContainer.ImagePullPolicy,
 		Name:            configuration.Spec.InitContainer.ContainerName,
-		VolumeMounts: []v1.VolumeMount{
+		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      configuration.Spec.InitContainer.SharedVolumeName,
 				MountPath: configuration.Spec.InitContainer.SharedVolumeMountPath},
@@ -222,7 +222,15 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		return err
 	}
 
-	r.patchedDeployments = append(r.patchedDeployments, *deployment)
+	r.DeploymentsManager.addPatchedDeployment(*deployment)
 	logrus.Infof("Deployment %s patched successfully", deployment.Name)
 	return nil
+}
+
+func (r *RookoutReconciler) patchDeployments(ctx context.Context) {
+	for _, deployment := range r.DeploymentsManager.Deployments {
+		if !deployment.isPatched {
+			r.patchDeployment(ctx, deployment.Deployment)
+		}
+	}
 }
