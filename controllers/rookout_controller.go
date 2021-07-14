@@ -67,7 +67,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			r.updateOperatorConfiguration(operatorConfiguration)
-			r.patchDeployments(ctx)
+			r.syncDeployments(ctx)
 		}
 
 	case DeploymentResource:
@@ -80,12 +80,12 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			err := r.Client.Get(ctx, req.NamespacedName, &deployment)
 			if err != nil {
 				if !strings.Contains(err.Error(), "not found") {
+					r.DeploymentsManager.ForgetDeployment(req.NamespacedName)
 					logrus.Errorf("Deployment not found, maybe already deleted. deployment: %s", req.NamespacedName)
 				}
 				return ctrl.Result{}, nil
 			}
-
-			err = r.patchDeployment(ctx, &deployment)
+			err = r.syncDeployment(ctx, &deployment)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -150,18 +150,8 @@ func (r *RookoutReconciler) updateOperatorConfiguration(config rookoutv1alpha1.R
 	logrus.Info("Operator configuration updated")
 }
 
-func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *apps.Deployment) error {
-	if r.DeploymentsManager.isDeploymentPatched(*deployment) {
-		return nil
-	}
-
-	shouldPatch := false
-
-	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
-		if initContainer.Name == configuration.Spec.InitContainer.ContainerName {
-			return nil
-		}
-	}
+func (r *RookoutReconciler) syncDeployment(ctx context.Context, deployment *apps.Deployment) error {
+	matchFound := false
 
 	originalDeployment := client.MergeFrom(deployment.DeepCopy())
 
@@ -172,8 +162,8 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		containerMatched := false
 		for _, matcher := range configuration.Spec.Matchers {
 			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && namespaceMatch(matcher, *deployment) && labelsMatch(matcher, *deployment) {
-				setRookoutEnvVars(&container.Env, matcher.EnvVars)
 				containerMatched = true
+				setRookoutEnvVars(&container.Env, matcher.EnvVars)
 				break
 			}
 		}
@@ -181,8 +171,6 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		if !containerMatched {
 			continue
 		}
-
-		//logrus.Infof("Adding rookout agent to container %s of deployment %s in %s namespace", container.Name, deployment.Name, deployment.GetNamespace())
 
 		container.Env = r.updateContainerEnvVars(container)
 
@@ -192,14 +180,32 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		})
 
 		updatedContainers = append(updatedContainers, container)
-		shouldPatch = true
+		matchFound = true
 	}
 
-	if !shouldPatch {
-		r.DeploymentsManager.addNonPatchedDeployment(*deployment)
+	if !matchFound {
+		var err error = nil
+
+		if r.DeploymentsManager.IsDeploymentMarkedAsPatched(*deployment) || doesDeploymentHaveJavaSDKContainer(deployment) {
+			err = r.unpatchDeployment(ctx, deployment, originalDeployment)
+
+			if err != nil {
+				logrus.Infof("Successfully removed java SDK from %s", deployment.Namespace+"/"+deployment.Name)
+			}
+		}
+
+		r.DeploymentsManager.MarkDeploymentAsPatched(*deployment)
+		return err
+	}
+
+	// Edge case - on first run, deployments might be patched but not registered in r.DeploymentsManager
+	if doesDeploymentHaveJavaSDKContainer(deployment) {
+		r.DeploymentsManager.MarkDeploymentAsNotPatched(*deployment)
 		return nil
 	}
 
+	// Patching Deployment
+	logrus.Infof("Adding rookout agent to deployment %s in %s namespace", deployment.Name, deployment.GetNamespace())
 	deployment.Spec.Template.Spec.Containers = updatedContainers
 
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, core.Volume{
@@ -223,9 +229,19 @@ func (r *RookoutReconciler) patchDeployment(ctx context.Context, deployment *app
 		return err
 	}
 
-	r.DeploymentsManager.addPatchedDeployment(*deployment)
+	r.DeploymentsManager.MarkDeploymentAsNotPatched(*deployment)
 	logrus.Infof("Deployment %s patched successfully", deployment.Name)
 	return nil
+}
+
+func doesDeploymentHaveJavaSDKContainer(deployment *apps.Deployment) bool {
+	for _, initContainer := range deployment.Spec.Template.Spec.InitContainers {
+		if initContainer.Name == configuration.Spec.InitContainer.ContainerName {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *RookoutReconciler) updateContainerEnvVars(container core.Container) []core.EnvVar {
@@ -253,10 +269,70 @@ func (r *RookoutReconciler) updateContainerEnvVars(container core.Container) []c
 	return newEnvVars
 }
 
-func (r *RookoutReconciler) patchDeployments(ctx context.Context) {
+func (r *RookoutReconciler) syncDeployments(ctx context.Context) {
 	for _, deployment := range r.DeploymentsManager.Deployments {
 		if !deployment.isPatched {
-			r.patchDeployment(ctx, deployment.Deployment)
+			r.syncDeployment(ctx, deployment.Deployment)
 		}
 	}
+}
+
+func (r *RookoutReconciler) unpatchDeployment(ctx context.Context, deployment *apps.Deployment, patchObj client.Patch) error {
+	var updatedContainers []core.Container
+	var updatedInitContainers []core.Container
+	var updatedVolumes []core.Volume
+
+	// Cleaning Env vars & volumeMounts per container
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		var updatedEnvVars []core.EnvVar
+		var updatedVolumeMounts []core.VolumeMount
+
+		for _, envVar := range container.Env {
+			if envVar.Name == "JAVA_TOOL_OPTIONS" {
+				javaToolOptions := strings.Split(envVar.Value, " ")
+				javaToolOptions = removeElementWithSuffix(javaToolOptions, "rook.jar")
+
+				if len(javaToolOptions) == 0 {
+					continue
+				}
+
+				envVar.Value = strings.Join(javaToolOptions, " ")
+			}
+
+			if strings.HasPrefix(envVar.Name, RookoutEnvVarPreffix) {
+				continue
+			}
+
+			updatedEnvVars = append(updatedEnvVars, envVar)
+		}
+
+		for _, volumeMount := range container.VolumeMounts {
+			if volumeMount.Name != configuration.Spec.InitContainer.SharedVolumeName {
+				updatedVolumeMounts = append(updatedVolumeMounts, volumeMount)
+			}
+		}
+
+		container.Env = updatedEnvVars
+		container.VolumeMounts = updatedVolumeMounts
+		updatedContainers = append(updatedContainers, container)
+	}
+
+	// Removing Rookout volume and init container
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		if volume.Name != configuration.Spec.InitContainer.SharedVolumeName {
+			updatedVolumes = append(updatedVolumes, volume)
+		}
+	}
+
+	for _, container := range deployment.Spec.Template.Spec.InitContainers {
+		if container.Name != configuration.Spec.InitContainer.ContainerName {
+			updatedInitContainers = append(updatedInitContainers, container)
+		}
+	}
+
+	deployment.Spec.Template.Spec.Containers = updatedContainers
+	deployment.Spec.Template.Spec.InitContainers = updatedInitContainers
+	deployment.Spec.Template.Spec.Volumes = updatedVolumes
+
+	return r.Client.Patch(ctx, deployment, patchObj)
 }

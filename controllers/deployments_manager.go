@@ -7,7 +7,7 @@ import (
 
 // We are saving a state of all running deployments in the cluster
 type DeploymentsManager struct {
-	Deployments map[types.UID]*RunningDeployment
+	Deployments map[string]*RunningDeployment
 }
 
 type RunningDeployment struct {
@@ -16,25 +16,39 @@ type RunningDeployment struct {
 }
 
 func NewDeploymentsManager() DeploymentsManager {
-	return DeploymentsManager{Deployments: make(map[types.UID]*RunningDeployment, 0)}
+	return DeploymentsManager{Deployments: make(map[string]*RunningDeployment, 0)}
 }
 
-func (d *DeploymentsManager) addNonPatchedDeployment(deployment apps.Deployment) {
-	d.Deployments[deployment.UID] = &RunningDeployment{
+func createDeploymentKey(deployment apps.Deployment) string {
+	return types.NamespacedName{
+		Namespace: deployment.Namespace,
+		Name:      deployment.Name,
+	}.String()
+}
+
+func (d *DeploymentsManager) MarkDeploymentAsPatched(deployment apps.Deployment) {
+	d.Deployments[createDeploymentKey(deployment)] = &RunningDeployment{
 		Deployment: deployment.DeepCopy(),
 		isPatched:  false,
 	}
 }
 
-func (d *DeploymentsManager) addPatchedDeployment(deployment apps.Deployment) {
-	d.Deployments[deployment.UID] = &RunningDeployment{
+func (d *DeploymentsManager) MarkDeploymentAsNotPatched(deployment apps.Deployment) {
+	d.Deployments[createDeploymentKey(deployment)] = &RunningDeployment{
 		Deployment: deployment.DeepCopy(),
 		isPatched:  true,
 	}
 }
 
-func (d *DeploymentsManager) isDeploymentPatched(deployment apps.Deployment) bool {
-	mappedDeployment, exist := d.Deployments[deployment.UID]
+func (d *DeploymentsManager) ForgetDeployment(namespacedName types.NamespacedName) {
+	key := namespacedName.String()
+	if _, ok := d.Deployments[key]; ok {
+		delete(d.Deployments, key)
+	}
+}
+
+func (d *DeploymentsManager) IsDeploymentMarkedAsPatched(deployment apps.Deployment) bool {
+	mappedDeployment, exist := d.Deployments[createDeploymentKey(deployment)]
 
 	return exist && mappedDeployment.isPatched
 }

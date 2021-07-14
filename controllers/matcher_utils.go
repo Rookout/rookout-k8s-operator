@@ -73,3 +73,12 @@ func getConfigStr(config string, defaultValue string) string {
 
 	return defaultValue
 }
+
+func removeElementWithSuffix(s []string, suffix string) []string {
+	for i, v := range s {
+		if strings.HasSuffix(v, suffix) {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
