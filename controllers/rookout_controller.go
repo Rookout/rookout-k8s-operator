@@ -85,6 +85,7 @@ func (r *RookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				}
 				return ctrl.Result{}, nil
 			}
+
 			err = r.syncDeployment(ctx, &deployment)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -162,8 +163,8 @@ func (r *RookoutReconciler) syncDeployment(ctx context.Context, deployment *apps
 		containerMatched := false
 		for _, matcher := range configuration.Spec.Matchers {
 			if deploymentMatch(matcher, *deployment) && containerMatch(matcher, container) && namespaceMatch(matcher, *deployment) && labelsMatch(matcher, *deployment) {
-				containerMatched = true
 				setRookoutEnvVars(&container.Env, matcher.EnvVars)
+				containerMatched = true
 				break
 			}
 		}
@@ -172,7 +173,7 @@ func (r *RookoutReconciler) syncDeployment(ctx context.Context, deployment *apps
 			continue
 		}
 
-		container.Env = r.updateContainerEnvVars(container)
+		container.Env = r.addJavaAgentEnvVar(container)
 
 		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
 			Name:      configuration.Spec.InitContainer.SharedVolumeName,
@@ -244,7 +245,7 @@ func doesDeploymentHaveJavaSDKContainer(deployment *apps.Deployment) bool {
 	return false
 }
 
-func (r *RookoutReconciler) updateContainerEnvVars(container core.Container) []core.EnvVar {
+func (r *RookoutReconciler) addJavaAgentEnvVar(container core.Container) []core.EnvVar {
 	newEnvVars := container.Env
 	JavaAgent := fmt.Sprintf("-javaagent:%s/rook.jar", configuration.Spec.InitContainer.SharedVolumeMountPath)
 
