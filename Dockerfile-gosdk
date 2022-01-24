@@ -1,0 +1,35 @@
+# Build the manager binary
+FROM golang:1.17 as builder
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+
+RUN apt update && apt-get install -y git ca-certificates libffi-dev zlib1g-dev libedit-dev libc++-11-dev libc++abi-11-dev
+
+ARG ARTIFACTORY_CREDS
+RUN go env -w GONOSUMDB="github.com/Rookout/GoSDK"
+RUN go env -w GOPROXY="https://${ARTIFACTORY_CREDS}@rookout.jfrog.io/artifactory/api/go/rookout-go,https://proxy.golang.org,direct"
+RUN go mod download
+
+# Copy the go source
+COPY main.go main.go
+COPY api/ api/
+COPY controllers/ controllers/
+
+# Build
+RUN GOOS=linux GOARCH=amd64 GO111MODULE=on go build -gcflags '-N -l' -tags=alpine314,rookout_static -a -o manager main.go
+
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY --from=builder /workspace/manager .
+
+# rook dynamic loader
+COPY ./rook.jar /var/rookout/rook.jar
+
+USER 65532:65532
+
+ENTRYPOINT ["/manager"]
