@@ -10,7 +10,7 @@ RUN apt update && apt-get install -y git ca-certificates libffi-dev zlib1g-dev l
 
 ARG ARTIFACTORY_CREDS
 RUN go env -w GONOSUMDB="github.com/Rookout/GoSDK"
-RUN go env -w GOPROXY="https://${ARTIFACTORY_CREDS}@rookout.jfrog.io/artifactory/api/go/rookout-go,https://proxy.golang.org,direct"
+RUN go env -w GOPROXY="https://proxy.golang.org,https://${ARTIFACTORY_CREDS}@rookout.jfrog.io/artifactory/api/go/rookout-go,direct"
 RUN go mod download
 
 # Copy the go source
