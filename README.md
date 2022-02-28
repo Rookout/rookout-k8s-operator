@@ -1,5 +1,5 @@
-# rookout-k8s-operator
-Rookout's k8s operator
+# rookout-k8s-operator (beta)
+Rookout's k8s operator (currently in beta)
 
 
 ## Main operator goals
