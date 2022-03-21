@@ -126,7 +126,7 @@ bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 build-and-deploy:
-	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0	
 	kubectl delete deployment.apps/rookout-controller-manager -n rookout #Comment this out if this is the first time running on the cluster
 	make install
 	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
@@ -134,14 +134,17 @@ build-and-deploy:
 
 deployment_yamls:
 	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+		
 log:
 	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f
 
 build_init_container:
 	docker build -f InitContainer.Dockerfile . -t us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+	docker build -f InitContainer.Dockerfile.ubi . -t us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 push_init_container:
 	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
@@ -151,17 +154,27 @@ publish-operator:
 
 	# Pulling image from rookout's bucket
 	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION}
 	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 	# Tagging image with dockerhub name and right version
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:latest
 	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
 	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:latest
 
 	# Logging into dockerhub and pushing
 	docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
 	docker push rookout/k8s-operator:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
 	docker push rookout/k8s-operator:latest
+	docker push rookout/k8s-operator-ubi:latest
 	docker push rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
 	docker push rookout/k8s-operator-init-container:latest
+	docker push rookout/k8s-operator-init-container-ubi:latest
