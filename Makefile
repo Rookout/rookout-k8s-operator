@@ -82,7 +82,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build:
-	docker build -t ${IMG} .
+	docker build -t ${IMG} -f ${DOCKERFILE} . 
 
 # Push the docker image
 docker-push:
@@ -126,7 +126,7 @@ bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 build-and-deploy:
-	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0	
+	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0 DOCKERFILE=Dockerfile
 	kubectl delete deployment.apps/rookout-controller-manager -n rookout #Comment this out if this is the first time running on the cluster
 	make install
 	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
@@ -134,7 +134,7 @@ build-and-deploy:
 
 deployment_yamls:
 	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
-		
+
 log:
 	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f
 
