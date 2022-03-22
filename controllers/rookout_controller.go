@@ -23,7 +23,6 @@ import (
 const (
 	DefaultRequeueAfter                 = 10 * time.Second
 	DefaultInitContainerName            = "agent-init-container"
-	DefaultInitContainerImage           = "docker.io/rookout/k8s-operator-init-container:latest"
 	DefaultInitContainerImagePullPolicy = core.PullAlways
 	DefaultSharedVolumeName             = "rookout-agent-shared-volume"
 	DefaultSharedVolumeMountPath        = "/rookout"

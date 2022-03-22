@@ -8,3 +8,4 @@ make push_init_container INNER_VERSION=${NEW_VERSION}
 
 echo "Pushing Operator Docker..."
 make docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:${NEW_VERSION}
+make docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator-ubi:${NEW_VERSION}
