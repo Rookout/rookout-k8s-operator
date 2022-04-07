@@ -1,4 +1,16 @@
 FROM registry.access.redhat.com/ubi8-minimal:8.5-230
+
+### Required OpenShift Labels
+LABEL name="Rookout Operator Init Container" \
+      vendor="Rookout" \
+      version="v1.0" \
+      release="1" \
+      summary="Rookout Operator for Openshift" \
+      description="This operator will dynamically instrument running services with the Rookout agent"
+
+# Required for OpenShift
+COPY licenses/ /licenses
+
 RUN microdnf install curl
 RUN curl -L "https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=com.rookout&a=rook&v=LATEST" -o rook.jar
 CMD ["cp", "rook.jar", "/rookout/rook.jar"]
