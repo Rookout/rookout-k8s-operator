@@ -1,5 +1,10 @@
 FROM registry.access.redhat.com/ubi8-minimal:8.5-230
 
+RUN microdnf install yum \    
+  && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
+  && yum clean all \
+  && microdnf clean all
+
 ### Required OpenShift Labels
 LABEL name="Rookout Operator Init Container" \
       vendor="Rookout" \
