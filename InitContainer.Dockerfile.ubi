@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8-minimal:8.5-230
+FROM registry.access.redhat.com/ubi8-minimal:latest
 
 RUN microdnf install yum \    
   && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
