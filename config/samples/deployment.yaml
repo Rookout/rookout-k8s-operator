@@ -371,7 +371,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: us.gcr.io/rookout/rookout-k8s-operator:1.0
+        image: docker.io/rookout/k8s-operator-ubi:1.8@0e2dd4d24d92420613aec597badcfe89042c6bf6c7d463bafa6255ede9ad8026
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

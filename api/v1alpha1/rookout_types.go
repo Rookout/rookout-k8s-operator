@@ -20,7 +20,7 @@ type Matcher struct {
 }
 
 type InitContainer struct {
-	Image                 string        `json:"image,omitempty"`
+	Image                 string        `json:"image"`
 	ImagePullPolicy       v1.PullPolicy `json:"image_pull_policy,omitempty"`
 	ContainerName         string        `json:"container_name,omitempty"`
 	SharedVolumeMountPath string        `json:"shared_volume_mount_path,omitempty"`
@@ -29,8 +29,8 @@ type InitContainer struct {
 
 // RookoutSpec defines the desired state of Rookout
 type RookoutSpec struct {
-	Matchers      []Matcher     `json:"matchers,omitempty"`
-	InitContainer InitContainer `json:"init_container,omitempty"`
+	Matchers      []Matcher     `json:"matchers"`
+	InitContainer InitContainer `json:"init_container"`
 	RequeueAfter  time.Duration `json:"requeue_after,omitempty"`
 }
 

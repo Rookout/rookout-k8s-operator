@@ -2,9 +2,17 @@ apiVersion: rookout.rookout.com/v1alpha1
 kind: Rookout
 metadata:
   name: rookout-operator-configuration
+  labels:
+    app: roookout-operator
 spec:
+  init_container:
+    image: docker.io/rookout/k8s-operator-init-container-ubi:latest@sha256:30bbbaaf23e65ad3384430bfd07c92c795a7c3fcfec7a83d67bedb41df3bddf7
+    image_pull_policy: Always
   matchers:
-    - deployment : "java-test"
+    - deployment: "test_deployment"
+      container: "test_container"
+      namespace: "test_namespace"
+      labels: "test_labels"  
       env_vars:
         - name: "ROOKOUT_TOKEN"
           value: "fba5d2d413de317d77110867968ecc413bc13e65a7c75a32f6002adb2d7aebee"

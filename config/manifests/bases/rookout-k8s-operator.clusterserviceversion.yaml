@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: rookout-k8s-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Rookout is the Schema for the rookouts API
+      displayName: Rookout
+      kind: Rookout
+      name: rookouts.rookout.rookout.com
+      version: v1alpha1
+  description: Rookout Operator for instrumenting applications with the Rookout agent
+  displayName: Rookout Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - developer tools
+  - rookout
+  - operator
+  links:
+  - name: Rookout K8s Operator
+    url: https://rookout-k8s-operator.domain
+  maturity: alpha
+  provider:
+    name: Rookout
+    url: http://www.rookout.com
+  version: 0.0.0
