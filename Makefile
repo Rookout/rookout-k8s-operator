@@ -152,12 +152,11 @@ apply_config:
 update_rook_jar:
 	git checkout master
 	git pull
-	# Needed because jenkins.
 	git config --global user.email "sonario@rookout.com"
 	git config --global user.name "sonariorobot"
 	curl -o rook.jar https://get.rookout.com/rook.jar
 	git add rook.jar
-	git commit -m "Updated rook.jar version to `java -jar ./rook.jar | grep "Rookout version" | awk -F': ' {'print $$2'}` [skip ci]"
+	git commit -m "Updated rook.jar version to `java -jar ./rook.jar | grep "Rookout version" | awk -F': ' {'print $$2'}`"
 	python bump_version.py
 	git add manifest.yml
 	git commit -m "Updated Docker external version to `python bump_version.py read_only`"
