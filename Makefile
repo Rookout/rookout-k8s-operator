@@ -149,6 +149,10 @@ push_init_container:
 apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
 
+update_rook_jar:
+	echo `java -jar ./rook.jar | grep "Rookout version" | awk -F': ' {'print $$2'}`
+
+
 publish-operator:
 	## Publishing operator & init container images
 
