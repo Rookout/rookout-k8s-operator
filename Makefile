@@ -150,7 +150,7 @@ apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
 
 update_rook_jar:
-	#git checkout master
+	git checkout master
 	git pull
 	# Needed because jenkins.
 	git config --global user.email "sonario@rookout.com"
