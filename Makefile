@@ -150,6 +150,7 @@ apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
 
 upgrade_java_rook:
+	# !!! this step should run only by jenkins !!!
 	git checkout master
 	git pull
 	git config --global user.email "sonario@rookout.com"
