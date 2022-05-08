@@ -1,0 +1,2 @@
+docker:
+  external_version: '1.8'

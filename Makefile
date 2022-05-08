@@ -149,6 +149,23 @@ push_init_container:
 apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml
 
+bump:
+	python version_utils.py bump
+	git add manifest.yml
+	git commit -m "Updated Docker external version to `python version_utils.py read`"
+
+upgrade_java_rook:
+	# !!! this step should run only by jenkins !!!
+	git checkout master
+	git pull
+	git config --global user.email "sonario@rookout.com"
+	git config --global user.name "sonariorobot"
+	curl -o rook.jar https://get.rookout.com/rook.jar
+	git add rook.jar
+	git commit -m "Updated java rook version to `java -jar ./rook.jar | grep "Rookout version" | awk -F': ' {'print $$2'}`"
+	make bump
+	git push
+
 publish-operator:
 	## Publishing operator & init container images
 
@@ -159,22 +176,26 @@ publish-operator:
 	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 	# Tagging image with dockerhub name and right version
-	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:${VERSION_TO_PUBLISH}
-	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:`python version_utils.py read`
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:`python version_utils.py read`
 	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:latest
 	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:latest
-	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
-	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:`python version_utils.py read`
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:`python version_utils.py read`
 	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:latest
 	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:latest
 
 	# Logging into dockerhub and pushing
 	docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-	docker push rookout/k8s-operator:${VERSION_TO_PUBLISH}
-	docker push rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator:`python version_utils.py read`
+	docker push rookout/k8s-operator-ubi:`python version_utils.py read`
 	docker push rookout/k8s-operator:latest
 	docker push rookout/k8s-operator-ubi:latest
-	docker push rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
-	docker push rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-init-container:`python version_utils.py read`
+	docker push rookout/k8s-operator-init-container-ubi:`python version_utils.py read`
 	docker push rookout/k8s-operator-init-container:latest
 	docker push rookout/k8s-operator-init-container-ubi:latest
+
+
+
+
