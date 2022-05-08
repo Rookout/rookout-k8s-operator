@@ -152,7 +152,7 @@ apply_config:
 bump:
 	python version_utils.py bump
 	git add manifest.yml
-	#git commit -m "Updated Docker external version to `python version_utils.py read`"
+	git commit -m "Updated Docker external version to `python version_utils.py read`"
 
 upgrade_java_rook:
 	# !!! this step should run only by jenkins !!!
