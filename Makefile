@@ -167,8 +167,31 @@ upgrade_java_rook:
 	git push
 
 publish-operator:
-	bash ./publish.sh
+	## Publishing operator & init container images
 
+	# Pulling image from rookout's bucket
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
+	gcloud docker -- pull us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
+	# Tagging image with dockerhub name and right version
+	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator:${INNER_VERSION} rookout/k8s-operator:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-ubi:${INNER_VERSION} rookout/k8s-operator-ubi:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION} rookout/k8s-operator-init-container:latest
+	docker tag us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION} rookout/k8s-operator-init-container-ubi:latest
 
-
+	# Logging into dockerhub and pushing
+	docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
+	docker push rookout/k8s-operator:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-ubi:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator:latest
+	docker push rookout/k8s-operator-ubi:latest
+	docker push rookout/k8s-operator-init-container:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-init-container-ubi:${VERSION_TO_PUBLISH}
+	docker push rookout/k8s-operator-init-container:latest
+	docker push rookout/k8s-operator-init-container-ubi:latest
