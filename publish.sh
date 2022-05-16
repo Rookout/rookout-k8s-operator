@@ -1,6 +1,6 @@
 #!/bin/sh
 
-INNER_VERSION="$(git describe --tags --abbrev=0)-$(git branch --show-current)"
+INNER_VERSION="$(git describe --tags --abbrev=0)-master"
 EXTERNAL_VERSION=$(python version_utils.py read)
 
 ## Publishing operator & init container images
