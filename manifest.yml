@@ -1,2 +1,2 @@
 docker:
-  external_version: '1.11'
+  external_version: '1.12'
