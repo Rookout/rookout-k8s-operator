@@ -126,25 +126,25 @@ bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 build-and-deploy:
-	make docker-build docker-push IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0 DOCKERFILE=Dockerfile
+	make docker-build docker-push IMG=us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator:1.0 DOCKERFILE=Dockerfile
 	kubectl delete deployment.apps/rookout-controller-manager -n rookout #Comment this out if this is the first time running on the cluster
 	make install
-	make deploy IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+	make deploy IMG=us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator:1.0
 	kubectl apply -f config/samples/rookout_v1alpha1_rookout.yaml
 
 deployment_yamls:
-	make deploy_yaml IMG=us.gcr.io/rookout/rookout-k8s-operator:1.0
+	make deploy_yaml IMG=us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator:1.0
 
 log:
 	kubectl logs deployment.apps/rookout-controller-manager -n rookout -c manager -f
 
 build_init_container:
-	docker build -f InitContainer.Dockerfile . -t us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
-	docker build -f InitContainer.Dockerfile.ubi . -t us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
+	docker build -f InitContainer.Dockerfile . -t us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator-init-container:${INNER_VERSION}
+	docker build -f InitContainer.Dockerfile.ubi . -t us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 push_init_container:
-	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container:${INNER_VERSION}
-	docker push us.gcr.io/rookout/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
+	docker push us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator-init-container:${INNER_VERSION}
+	docker push us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator-init-container-ubi:${INNER_VERSION}
 
 apply_config:
 	kubectl apply -f ./config/samples/rookout_v1alpha1_rookout.yaml

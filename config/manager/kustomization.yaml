@@ -12,5 +12,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: us.gcr.io/rookout/rookout-k8s-operator
+  newName: us-central1-docker.pkg.dev/rookoutdevelopment/development-images/rookout-k8s-operator
   newTag: "1.0"
