@@ -1,0 +1,13 @@
+- dockerfile: /InitContainer.Dockerfile
+  imageName: rookout-k8s-operator-init-container
+  imageRepo: us-central1-docker.pkg.dev/rookoutdevelopment/development-images
+- dockerfile: /InitContainer.Dockerfile.ubi
+  imageName: rookout-k8s-operator-init-container-ubi
+  imageRepo: us-central1-docker.pkg.dev/rookoutdevelopment/development-images
+- dockerfile: /Dockerfile
+  imageName: rookout-k8s-operator
+  imageRepo: us-central1-docker.pkg.dev/rookoutdevelopment/development-images
+- dockerfile: /Dockerfile.ubi
+  imageName: rookout-k8s-operator-ubi
+  imageRepo: us-central1-docker.pkg.dev/rookoutdevelopment/development-images
+  
