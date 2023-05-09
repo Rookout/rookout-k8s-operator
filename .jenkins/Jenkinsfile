@@ -2,7 +2,7 @@ basicPipeline {
     PROFILE = "DockerOnly"
 }
 
-if ("master".equals(env.GIT_BRANCH) {
+if ("master".equals(env.GIT_BRANCH)) {
     def label = "publish_k8s_operator-${UUID.randomUUID().toString()}"
     podCreator.initMain(label: label) {
         node(label) {
